@@ -11,6 +11,7 @@ import (
 func TestEventCreation(t *testing.T) {
 	objectId := uuid.New().String()
 	before := time.Now().UnixNano()
+	time.Sleep(5 * time.Millisecond)
 	event := NewEvent(objectId, "eventCreated", 3, true)
 	time.Sleep(5 * time.Millisecond)
 
