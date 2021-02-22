@@ -1,4 +1,4 @@
-module github.com/lauevrar77/goddd
+module github.com/owlint/goddd
 
 go 1.15
 
