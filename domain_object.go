@@ -1,7 +1,8 @@
 package goddd
 
 type DomainObject interface {
-	ObjectId() string
-	EventStream() EventStream
+	EventStream
+
+	ObjectID() string
 	Apply(eventName string, eventPayload interface{})
 }
