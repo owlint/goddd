@@ -1,59 +1,44 @@
 package goddd
 
 type EventStream interface {
-	AddEvent(eventName string, payload interface{})
+	AddEvent(object DomainObject, eventName string, payload interface{})
 	Events() []Event
 	LastVersion() int
+	ContainsEventWithId(eventID string) bool
 }
 
-type eventStream struct {
-	object      DomainObject
+type Stream struct {
 	events      []Event
 	lastVersion int
 }
 
-func (stream *eventStream) AddEvent(eventName string, payload interface{}) {
-	event := NewEvent(stream.object.ObjectId(), eventName, stream.lastVersion+1, payload)
-	stream.events = append(stream.events, event)
-	stream.lastVersion += 1
-	stream.object.Apply(eventName, payload)
+func (s *Stream) AddEvent(object DomainObject, eventName string, payload interface{}) {
+	event := NewEvent(object.ObjectID(), eventName, s.lastVersion+1, payload)
+	s.events = append(s.events, event)
+	s.lastVersion++
+	object.Apply(eventName, payload)
 }
 
-func (stream eventStream) Events() []Event {
-	return stream.events
+func (s *Stream) Events() []Event {
+	return s.events
 }
 
-func (stream eventStream) LastVersion() int {
-	return stream.lastVersion
+func (s *Stream) LastVersion() int {
+	return s.lastVersion
 }
 
-func NewEventStream(object DomainObject) EventStream {
-	var stream EventStream
-	stream = &eventStream{
-		object:      object,
+func (s *Stream) ContainsEventWithId(eventId string) bool {
+	for _, event := range s.Events() {
+		if event.Id() == eventId {
+			return true
+		}
+	}
+	return false
+}
+
+func NewEventStream() Stream {
+	return Stream{
 		events:      make([]Event, 0),
 		lastVersion: 0,
 	}
-
-	return stream
-}
-
-func ReloadEventStream(object DomainObject, events []Event) EventStream {
-	maxVersion := 0
-
-	for _, event := range events {
-		object.Apply(event.Name(), event.Payload())
-		if event.Version() > maxVersion {
-			maxVersion = event.Version()
-		}
-	}
-
-	var stream EventStream
-	stream = &eventStream{
-		object:      object,
-		events:      events,
-		lastVersion: maxVersion,
-	}
-
-	return stream
 }

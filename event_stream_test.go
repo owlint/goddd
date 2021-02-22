@@ -1,30 +1,13 @@
 package goddd
 
-import "testing"
+import (
+	"testing"
 
-type testDomainObject struct {
-	number int
-}
-
-func (object testDomainObject) ObjectId() string {
-	return "objectId"
-}
-
-func (object *testDomainObject) Apply(eventName string, event interface{}) {
-	switch eventName {
-	case "NumberAdded":
-		toAdd := event.(int)
-		object.number += toAdd
-	}
-}
-
-func (o testDomainObject) EventStream() EventStream {
-	return &eventStream{}
-}
+	"github.com/google/uuid"
+)
 
 func TestEventStreamCreation(t *testing.T) {
-	stream := NewEventStream(&testDomainObject{})
-
+	stream := NewEventStream()
 	if len(stream.Events()) > 0 {
 		t.Log("Should not contain events")
 		t.Fail()
@@ -33,9 +16,9 @@ func TestEventStreamCreation(t *testing.T) {
 
 func TestAddEventToStream(t *testing.T) {
 	object := testDomainObject{}
-	stream := NewEventStream(&object)
+	stream := object.Stream
 
-	stream.AddEvent("NumberAdded", 3)
+	stream.AddEvent(&object, "NumberAdded", int32(3))
 
 	if len(stream.Events()) != 1 {
 		t.Log("Should contain one event")
@@ -59,7 +42,7 @@ func TestAddEventToStream(t *testing.T) {
 		t.Fail()
 	}
 
-	payload := event.Payload().(int)
+	payload := event.Payload().(int32)
 	if payload != 3 {
 		t.Log("Bad payload")
 		t.Fail()
@@ -72,11 +55,12 @@ func TestAddEventToStream(t *testing.T) {
 }
 
 func TestAddMultipleEventsToStream(t *testing.T) {
-	stream := NewEventStream(&testDomainObject{})
+	object := testDomainObject{}
+	stream := object.Stream
 
-	stream.AddEvent("number_added", 3)
-	stream.AddEvent("number_added", 2)
-	stream.AddEvent("number_added", 1)
+	stream.AddEvent(&object, "number_added", 3)
+	stream.AddEvent(&object, "number_added", 2)
+	stream.AddEvent(&object, "number_added", 1)
 
 	events := stream.Events()
 
@@ -105,11 +89,12 @@ func TestAddMultipleEventsToStream(t *testing.T) {
 }
 
 func TestLastVersion(t *testing.T) {
-	stream := NewEventStream(&testDomainObject{})
+	object := testDomainObject{}
+	stream := object.Stream
 
-	stream.AddEvent("number_added", 3)
-	stream.AddEvent("number_added", 2)
-	stream.AddEvent("number_added", 1)
+	stream.AddEvent(&object, "number_added", 3)
+	stream.AddEvent(&object, "number_added", 2)
+	stream.AddEvent(&object, "number_added", 1)
 
 	if stream.LastVersion() != 3 {
 		t.Log("Last version should be 3")
@@ -117,35 +102,41 @@ func TestLastVersion(t *testing.T) {
 	}
 }
 
-func TestReload(t *testing.T) {
-	domainObject := &testDomainObject{}
-	stream := NewEventStream(domainObject)
+func TestContainsEvent(t *testing.T) {
+	object := testDomainObject{}
+	stream := object.Stream
 
-	stream.AddEvent("number_added", 3)
-	stream.AddEvent("number_added", 2)
-	stream.AddEvent("number_added", 1)
+	stream.AddEvent(&object, "number_added", 3)
+	stream.AddEvent(&object, "number_added", 2)
+	stream.AddEvent(&object, "number_added", 1)
 
-	events := stream.Events()
-
-	reloadedDomainObject := &testDomainObject{}
-	reloadedStream := ReloadEventStream(reloadedDomainObject, events)
-
-	if domainObject.number != reloadedDomainObject.number {
-		t.Log("Wrong value")
+	if !stream.ContainsEventWithId(stream.Events()[0].Id()) {
+		t.Log("Should contain event")
 		t.Fail()
 	}
+}
 
-	if reloadedStream.LastVersion() != stream.LastVersion() {
-		t.Log("Wrong last version")
+func TestNotContainEvent(t *testing.T) {
+	object := testDomainObject{}
+	stream := object.Stream
+
+	stream.AddEvent(&object, "number_added", 3)
+	stream.AddEvent(&object, "number_added", 2)
+	stream.AddEvent(&object, "number_added", 1)
+
+	if stream.ContainsEventWithId(uuid.New().String()) {
+		t.Log("Should not contain event")
 		t.Fail()
 	}
 }
 
 func benchmarkAddEvents(nbEvents int, payload interface{}, b *testing.B) {
-	stream := NewEventStream(&testDomainObject{})
+	object := testDomainObject{}
+	stream := object.Stream
+
 	for n := 0; n < b.N; n++ {
 		for eventNb := 0; eventNb < nbEvents; eventNb++ {
-			stream.AddEvent("added", payload)
+			stream.AddEvent(&object, "added", payload)
 		}
 	}
 }
