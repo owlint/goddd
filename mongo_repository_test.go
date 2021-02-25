@@ -164,8 +164,8 @@ func TestMongoLoad(t *testing.T) {
 	object2.Method(10)
 	repo.Save(&object2)
 
-	loadedObject := testDomainObject{ID: object.ObjectID()}
-	err := repo.Load(&loadedObject)
+	loadedObject := testDomainObject{}
+	err := repo.Load(object.ObjectID(), &loadedObject)
 
 	if err != nil {
 		t.Errorf("No error should occur on load : %v", err)

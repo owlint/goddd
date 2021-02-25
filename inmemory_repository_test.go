@@ -3,7 +3,8 @@ package goddd
 import "testing"
 
 func TestSave(t *testing.T) {
-	repo := NewInMemoryRepository()
+	publisher := NewEventPublisher()
+	repo := NewInMemoryRepository(publisher)
 	object := testDomainObject{}
 
 	object.Method(5)
@@ -16,7 +17,8 @@ func TestSave(t *testing.T) {
 }
 
 func TestSaveMultiples(t *testing.T) {
-	repo := NewInMemoryRepository()
+	publisher := NewEventPublisher()
+	repo := NewInMemoryRepository(publisher)
 	object := testDomainObject{}
 
 	object.Method(5)
@@ -30,7 +32,8 @@ func TestSaveMultiples(t *testing.T) {
 }
 
 func TestSaveMultiplesObject(t *testing.T) {
-	repo := NewInMemoryRepository()
+	publisher := NewEventPublisher()
+	repo := NewInMemoryRepository(publisher)
 	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
 	object2 := testDomainObject{ID: NewIdentity("TestDomainObject")}
 
@@ -48,7 +51,8 @@ func TestSaveMultiplesObject(t *testing.T) {
 }
 
 func TestLoad(t *testing.T) {
-	repo := NewInMemoryRepository()
+	publisher := NewEventPublisher()
+	repo := NewInMemoryRepository(publisher)
 	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
 	object2 := testDomainObject{ID: NewIdentity("TestDomainObject")}
 
@@ -59,8 +63,8 @@ func TestLoad(t *testing.T) {
 	object2.Method(10)
 	repo.Save(&object2)
 
-	loadedObject := testDomainObject{ID: object.ObjectID()}
-	err := repo.Load(&loadedObject)
+	loadedObject := testDomainObject{}
+	err := repo.Load(object.ObjectID(), &loadedObject)
 
 	if err != nil {
 		t.Errorf("No error should occur on load : %v", err)

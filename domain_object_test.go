@@ -1,6 +1,12 @@
 package goddd
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/owlint/goddd/pb"
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/proto"
+)
 
 type testDomainObject struct {
 	Stream
@@ -16,16 +22,25 @@ func (object *testDomainObject) ObjectID() string {
 	return object.ID
 }
 
-func (object *testDomainObject) Apply(eventName string, event interface{}) {
+func (object *testDomainObject) Apply(eventName string, event []byte) error {
 	switch eventName {
 	case "NumberAdded":
-		toAdd := event.(int32)
-		object.number += toAdd
+		payload := &pb.NumberAdded{}
+		err := proto.Unmarshal(event, payload)
+		if err != nil {
+			return err
+		}
+		object.number += payload.Nb
+		return nil
 	}
+
+	return nil
 }
 
 func (object *testDomainObject) Method(number int32) {
-	object.AddEvent(object, "NumberAdded", number)
+	event := pb.NumberAdded{}
+	event.Nb = number
+	object.AddEvent(object, "NumberAdded", &event)
 }
 
 func TestMutationWorks(t *testing.T) {
@@ -33,15 +48,8 @@ func TestMutationWorks(t *testing.T) {
 
 	object.Method(5)
 
-	if object.number != 5 {
-		t.Error("Wrong value")
-		t.FailNow()
-	}
-
-	if len(object.Events()) != 1 {
-		t.Error("Cant find events")
-		t.FailNow()
-	}
+	assert.Equal(t, int32(5), object.number)
+	assert.Len(t, object.Events(), 1)
 }
 
 func TestMultipleMutationWorks(t *testing.T) {
@@ -50,13 +58,6 @@ func TestMultipleMutationWorks(t *testing.T) {
 	object.Method(5)
 	object.Method(5)
 
-	if object.number != 10 {
-		t.Error("Wrong value")
-		t.FailNow()
-	}
-
-	if len(object.Events()) != 2 {
-		t.Error("Cant find events")
-		t.FailNow()
-	}
+	assert.Equal(t, int32(10), object.number)
+	assert.Len(t, object.Events(), 2)
 }

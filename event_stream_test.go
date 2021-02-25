@@ -4,6 +4,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/owlint/goddd/pb"
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestEventStreamCreation(t *testing.T) {
@@ -18,164 +21,103 @@ func TestAddEventToStream(t *testing.T) {
 	object := testDomainObject{}
 	stream := object.Stream
 
-	stream.AddEvent(&object, "NumberAdded", int32(3))
+	payload := &pb.NumberAdded{}
+	payload.Nb = 3
+	stream.AddEvent(&object, "NumberAdded", payload)
 
-	if len(stream.Events()) != 1 {
-		t.Log("Should contain one event")
-		t.Fail()
-	}
+	assert.Len(t, stream.Events(), 1)
 
 	event := stream.Events()[0]
 
-	if event.Version() != 1 {
-		t.Log("Event version should be 1")
-		t.Fail()
-	}
+	assert.Equal(t, 1, event.Version())
+	assert.Equal(t, "objectId", event.ObjectId())
+	assert.Equal(t, "NumberAdded", event.Name())
 
-	if event.ObjectId() != "objectId" {
-		t.Log("Event does not have appropriate object id")
-		t.Fail()
-	}
+	payload.Reset()
+	err := proto.Unmarshal(event.Payload(), payload)
+	assert.Nil(t, err)
 
-	if event.Name() != "NumberAdded" {
-		t.Log("Event does not have appropriate name")
-		t.Fail()
-	}
-
-	payload := event.Payload().(int32)
-	if payload != 3 {
-		t.Log("Bad payload")
-		t.Fail()
-	}
-
-	if object.number != 3 {
-		t.Log("Event not applied")
-		t.Fail()
-	}
+	assert.Equal(t, int32(3), payload.Nb)
+	assert.Equal(t, int32(3), object.number)
 }
 
 func TestAddMultipleEventsToStream(t *testing.T) {
 	object := testDomainObject{}
 	stream := object.Stream
 
-	stream.AddEvent(&object, "number_added", 3)
-	stream.AddEvent(&object, "number_added", 2)
-	stream.AddEvent(&object, "number_added", 1)
+	payload := &pb.NumberAdded{}
+	payload.Nb = 3
+	stream.AddEvent(&object, "number_added", payload)
+	payload.Reset()
+	payload.Nb = 2
+	stream.AddEvent(&object, "number_added", payload)
+	payload.Reset()
+	payload.Nb = 1
+	stream.AddEvent(&object, "number_added", payload)
 
 	events := stream.Events()
 
-	if events[0].Version() != 1 {
-		t.Log("Wrong event version")
-		t.Fail()
-	}
-	if events[1].Version() != 2 {
-		t.Log("Wrong event version")
-		t.Fail()
-	}
-	if events[2].Version() != 3 {
-		t.Log("Wrong event version")
-		t.Fail()
-	}
+	assert.Equal(t, 1, events[0].Version())
+	assert.Equal(t, 2, events[1].Version())
+	assert.Equal(t, 3, events[2].Version())
 
 	eventIds := make([]string, 3)
 	for idx, event := range events {
 		eventIds[idx] = event.Id()
 	}
 
-	if !allDifferent(eventIds) {
-		t.Logf("Not all ids are different, %s", eventIds)
-		t.Fail()
-	}
+	assert.True(t, allDifferent(eventIds))
 }
 
 func TestLastVersion(t *testing.T) {
 	object := testDomainObject{}
 	stream := object.Stream
 
-	stream.AddEvent(&object, "number_added", 3)
-	stream.AddEvent(&object, "number_added", 2)
-	stream.AddEvent(&object, "number_added", 1)
+	payload := &pb.NumberAdded{}
+	payload.Nb = 3
+	stream.AddEvent(&object, "number_added", payload)
+	payload.Reset()
+	payload.Nb = 2
+	stream.AddEvent(&object, "number_added", payload)
+	payload.Reset()
+	payload.Nb = 1
+	stream.AddEvent(&object, "number_added", payload)
 
-	if stream.LastVersion() != 3 {
-		t.Log("Last version should be 3")
-		t.Fail()
-	}
+	assert.Equal(t, 3, stream.LastVersion())
 }
 
 func TestContainsEvent(t *testing.T) {
 	object := testDomainObject{}
 	stream := object.Stream
 
-	stream.AddEvent(&object, "number_added", 3)
-	stream.AddEvent(&object, "number_added", 2)
-	stream.AddEvent(&object, "number_added", 1)
+	payload := &pb.NumberAdded{}
+	payload.Nb = 3
+	stream.AddEvent(&object, "number_added", payload)
+	payload.Reset()
+	payload.Nb = 2
+	stream.AddEvent(&object, "number_added", payload)
+	payload.Reset()
+	payload.Nb = 1
 
-	if !stream.ContainsEventWithId(stream.Events()[0].Id()) {
-		t.Log("Should contain event")
-		t.Fail()
-	}
+	assert.True(t, stream.ContainsEventWithId(stream.Events()[0].Id()))
 }
 
 func TestNotContainEvent(t *testing.T) {
 	object := testDomainObject{}
 	stream := object.Stream
 
-	stream.AddEvent(&object, "number_added", 3)
-	stream.AddEvent(&object, "number_added", 2)
-	stream.AddEvent(&object, "number_added", 1)
+	payload := &pb.NumberAdded{}
+	payload.Nb = 3
+	stream.AddEvent(&object, "number_added", payload)
+	payload.Reset()
+	payload.Nb = 2
+	stream.AddEvent(&object, "number_added", payload)
+	payload.Reset()
+	payload.Nb = 1
 
-	if stream.ContainsEventWithId(uuid.New().String()) {
-		t.Log("Should not contain event")
-		t.Fail()
-	}
+	assert.False(t, stream.ContainsEventWithId(uuid.New().String()))
 }
 
-func benchmarkAddEvents(nbEvents int, payload interface{}, b *testing.B) {
-	object := testDomainObject{}
-	stream := object.Stream
-
-	for n := 0; n < b.N; n++ {
-		for eventNb := 0; eventNb < nbEvents; eventNb++ {
-			stream.AddEvent(&object, "added", payload)
-		}
-	}
-}
-
-func BenchmarkAddEvents100bool(b *testing.B) {
-	var payload interface{}
-	payload = true
-	benchmarkAddEvents(100, payload, b)
-}
-
-func BenchmarkAddEvents1000bool(b *testing.B) {
-	var payload interface{}
-	payload = true
-	benchmarkAddEvents(1000, payload, b)
-}
-
-func BenchmarkAddEvents100string(b *testing.B) {
-	var payload interface{}
-	payload = "hello world"
-	benchmarkAddEvents(100, payload, b)
-}
-
-func BenchmarkAddEvents1000string(b *testing.B) {
-	var payload interface{}
-	payload = "hello world"
-	benchmarkAddEvents(1000, payload, b)
-}
-
-func BenchmarkAddEvents100arr(b *testing.B) {
-	var payload interface{}
-	payload = []string{"hello", "world"}
-	benchmarkAddEvents(100, payload, b)
-}
-
-func BenchmarkAddEvents1000arr(b *testing.B) {
-	var payload interface{}
-	payload = []string{"hello", "world"}
-	benchmarkAddEvents(1000, payload, b)
-}
 func allDifferent(arr []string) bool {
 	return len(arrayToSet(arr)) == len(arr)
 }

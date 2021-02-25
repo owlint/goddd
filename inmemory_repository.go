@@ -4,11 +4,13 @@ import "errors"
 
 type InMemoryRepository struct {
 	eventStream []Event
+	publisher   EventPublisher
 }
 
-func NewInMemoryRepository() InMemoryRepository {
+func NewInMemoryRepository(publisher EventPublisher) InMemoryRepository {
 	return InMemoryRepository{
 		eventStream: make([]Event, 0),
+		publisher:   publisher,
 	}
 }
 
@@ -21,19 +23,19 @@ func (r *InMemoryRepository) Save(object DomainObject) error {
 		r.eventStream = append(r.eventStream, event)
 	}
 
+	r.publisher.Publish(eventToAdd)
+
 	return nil
 }
 
-func (r *InMemoryRepository) Load(object DomainObject) error {
-	objectID := object.ObjectID()
-
+func (r *InMemoryRepository) Load(objectID string, object DomainObject) error {
 	if exist, err := r.Exists(objectID); err != nil || !exist {
 		return errors.New("Cannot load unknown object")
 	}
 
 	objectEvents := r.objectRepositoryEvents(objectID)
 	for _, event := range objectEvents {
-		object.AddEvent(object, event.Name(), event.Payload())
+		object.LoadEvent(object, event)
 	}
 
 	return nil
