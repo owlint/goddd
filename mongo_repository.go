@@ -14,7 +14,7 @@ type record struct {
 	ObjectID  string
 	Timestamp int64
 	Name      string
-	Payload   interface{}
+	Payload   []byte
 }
 
 type MongoRepository struct {
@@ -47,9 +47,7 @@ func (r *MongoRepository) Save(object DomainObject) error {
 	return nil
 }
 
-func (r *MongoRepository) Load(object DomainObject) error {
-	objectID := object.ObjectID()
-
+func (r *MongoRepository) Load(objectID string, object DomainObject) error {
 	exist, err := r.Exists(objectID)
 	if err != nil {
 		return err
@@ -64,7 +62,7 @@ func (r *MongoRepository) Load(object DomainObject) error {
 	}
 
 	for _, event := range objectEvents {
-		object.AddEvent(object, event.Name(), event.Payload())
+		object.LoadEvent(object, event)
 	}
 
 	return nil
@@ -118,7 +116,7 @@ func fromRecords(records []record) []Event {
 		events[i] = Event{
 			id:        record.ID,
 			version:   record.Version,
-			objectId:  record.ObjectID,
+			objectID:  record.ObjectID,
 			timestamp: record.Timestamp,
 			name:      record.Name,
 			payload:   record.Payload,

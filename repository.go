@@ -8,7 +8,7 @@ import (
 
 type Repository interface {
 	Save(object DomainObject) error
-	Load(object DomainObject) error
+	Load(objectID string, object DomainObject) error
 	Exists(objectID string) (bool, error)
 }
 
