@@ -140,7 +140,6 @@ func (r *ExentStoreRepository) insertEvents(streamName string, events []Event) e
 	}
 
 	jsonQuery, err := json.Marshal(query)
-	fmt.Println(string(jsonQuery))
 	if err != nil {
 		return err
 	}
