@@ -4,10 +4,10 @@ import "errors"
 
 type InMemoryRepository struct {
 	eventStream []Event
-	publisher   EventPublisher
+	publisher   *EventPublisher
 }
 
-func NewInMemoryRepository(publisher EventPublisher) InMemoryRepository {
+func NewInMemoryRepository(publisher *EventPublisher) InMemoryRepository {
 	return InMemoryRepository{
 		eventStream: make([]Event, 0),
 		publisher:   publisher,

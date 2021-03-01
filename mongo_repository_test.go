@@ -55,7 +55,8 @@ func TestMongoSave(t *testing.T) {
 	client, database := connectTestMongo(t)
 	defer client.Disconnect(context.TODO())
 
-	repo := NewMongoRepository(database, NewEventPublisher())
+	publisher := NewEventPublisher()
+	repo := NewMongoRepository(database, &publisher)
 	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
 
 	object.Method(5)
@@ -77,7 +78,7 @@ func TestMongoPublished(t *testing.T) {
 	publisher := NewEventPublisher()
 	publisher.Register(&receiver)
 	publisher.Wait = true
-	repo := NewMongoRepository(database, publisher)
+	repo := NewMongoRepository(database, &publisher)
 	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
 
 	object.Method(5)
@@ -98,7 +99,7 @@ func TestMongoPublishedNoWait(t *testing.T) {
 	}
 	publisher := NewEventPublisher()
 	publisher.Register(&receiver)
-	repo := NewMongoRepository(database, publisher)
+	repo := NewMongoRepository(database, &publisher)
 	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
 
 	object.Method(5)
@@ -115,7 +116,8 @@ func TestMongoSaveMultiples(t *testing.T) {
 	client, database := connectTestMongo(t)
 	defer client.Disconnect(context.TODO())
 
-	repo := NewMongoRepository(database, NewEventPublisher())
+	publisher := NewEventPublisher()
+	repo := NewMongoRepository(database, &publisher)
 	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
 
 	object.Method(5)
@@ -132,7 +134,8 @@ func TestMongoSaveMultiplesObject(t *testing.T) {
 	client, database := connectTestMongo(t)
 	defer client.Disconnect(context.TODO())
 
-	repo := NewMongoRepository(database, NewEventPublisher())
+	publisher := NewEventPublisher()
+	repo := NewMongoRepository(database, &publisher)
 	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
 	object2 := testDomainObject{ID: NewIdentity("TestDomainObject")}
 
@@ -153,7 +156,8 @@ func TestMongoLoad(t *testing.T) {
 	client, database := connectTestMongo(t)
 	defer client.Disconnect(context.TODO())
 
-	repo := NewMongoRepository(database, NewEventPublisher())
+	publisher := NewEventPublisher()
+	repo := NewMongoRepository(database, &publisher)
 	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
 	object2 := testDomainObject{ID: NewIdentity("TestDomainObject")}
 

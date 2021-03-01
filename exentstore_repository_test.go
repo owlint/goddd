@@ -37,7 +37,8 @@ func exentStreamFor(t *testing.T, objectID string) []exentstoreStreamEvent {
 }
 
 func TestExentStoreSave(t *testing.T) {
-	repo := NewExentStoreRepository("http://localhost:4000", NewEventPublisher())
+	publisher := NewEventPublisher()
+	repo := NewExentStoreRepository("http://localhost:4000", &publisher)
 	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
 
 	object.Method(5)
@@ -54,7 +55,7 @@ func TestExentStorePublished(t *testing.T) {
 	publisher := NewEventPublisher()
 	publisher.Register(&receiver)
 	publisher.Wait = true
-	repo := NewExentStoreRepository("http://localhost:4000", publisher)
+	repo := NewExentStoreRepository("http://localhost:4000", &publisher)
 	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
 
 	object.Method(5)
@@ -72,7 +73,7 @@ func TestExentStorePublishedNoWait(t *testing.T) {
 	}
 	publisher := NewEventPublisher()
 	publisher.Register(&receiver)
-	repo := NewExentStoreRepository("http://localhost:4000", publisher)
+	repo := NewExentStoreRepository("http://localhost:4000", &publisher)
 	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
 
 	object.Method(5)
@@ -86,7 +87,8 @@ func TestExentStorePublishedNoWait(t *testing.T) {
 }
 
 func TestExentStoreSaveMultiples(t *testing.T) {
-	repo := NewExentStoreRepository("http://localhost:4000", NewEventPublisher())
+	publisher := NewEventPublisher()
+	repo := NewExentStoreRepository("http://localhost:4000", &publisher)
 	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
 
 	object.Method(5)
@@ -100,7 +102,8 @@ func TestExentStoreSaveMultiples(t *testing.T) {
 }
 
 func TestExentStoreSaveMultiplesObject(t *testing.T) {
-	repo := NewExentStoreRepository("http://localhost:4000", NewEventPublisher())
+	publisher := NewEventPublisher()
+	repo := NewExentStoreRepository("http://localhost:4000", &publisher)
 	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
 	object2 := testDomainObject{ID: NewIdentity("TestDomainObject")}
 
@@ -118,7 +121,8 @@ func TestExentStoreSaveMultiplesObject(t *testing.T) {
 }
 
 func TestExentStoreLoad(t *testing.T) {
-	repo := NewExentStoreRepository("http://localhost:4000", NewEventPublisher())
+	publisher := NewEventPublisher()
+	repo := NewExentStoreRepository("http://localhost:4000", &publisher)
 	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
 	object2 := testDomainObject{ID: NewIdentity("TestDomainObject")}
 

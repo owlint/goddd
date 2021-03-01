@@ -30,10 +30,10 @@ type exentstoreStream struct {
 type ExentStoreRepository struct {
 	client    http.Client
 	endpoint  string
-	publisher EventPublisher
+	publisher *EventPublisher
 }
 
-func NewExentStoreRepository(endpoint string, publisher EventPublisher) ExentStoreRepository {
+func NewExentStoreRepository(endpoint string, publisher *EventPublisher) ExentStoreRepository {
 	return ExentStoreRepository{
 		client:    http.Client{},
 		endpoint:  endpoint,

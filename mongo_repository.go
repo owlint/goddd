@@ -19,10 +19,10 @@ type record struct {
 
 type MongoRepository struct {
 	collection *mongo.Collection
-	publisher  EventPublisher
+	publisher  *EventPublisher
 }
 
-func NewMongoRepository(database *mongo.Database, publisher EventPublisher) MongoRepository {
+func NewMongoRepository(database *mongo.Database, publisher *EventPublisher) MongoRepository {
 	return MongoRepository{
 		collection: database.Collection("event_store"),
 		publisher:  publisher,

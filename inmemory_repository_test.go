@@ -4,7 +4,7 @@ import "testing"
 
 func TestSave(t *testing.T) {
 	publisher := NewEventPublisher()
-	repo := NewInMemoryRepository(publisher)
+	repo := NewInMemoryRepository(&publisher)
 	object := testDomainObject{}
 
 	object.Method(5)
@@ -18,7 +18,7 @@ func TestSave(t *testing.T) {
 
 func TestSaveMultiples(t *testing.T) {
 	publisher := NewEventPublisher()
-	repo := NewInMemoryRepository(publisher)
+	repo := NewInMemoryRepository(&publisher)
 	object := testDomainObject{}
 
 	object.Method(5)
@@ -33,7 +33,7 @@ func TestSaveMultiples(t *testing.T) {
 
 func TestSaveMultiplesObject(t *testing.T) {
 	publisher := NewEventPublisher()
-	repo := NewInMemoryRepository(publisher)
+	repo := NewInMemoryRepository(&publisher)
 	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
 	object2 := testDomainObject{ID: NewIdentity("TestDomainObject")}
 
@@ -52,7 +52,7 @@ func TestSaveMultiplesObject(t *testing.T) {
 
 func TestLoad(t *testing.T) {
 	publisher := NewEventPublisher()
-	repo := NewInMemoryRepository(publisher)
+	repo := NewInMemoryRepository(&publisher)
 	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
 	object2 := testDomainObject{ID: NewIdentity("TestDomainObject")}
 
