@@ -85,6 +85,24 @@ func TestExentStorePublishedNoWait(t *testing.T) {
 		t.FailNow()
 	}
 }
+func TestExentStoreSaveVersionCorrection(t *testing.T) {
+	publisher := NewEventPublisher()
+	repo := NewExentStoreRepository("http://localhost:4000", &publisher)
+	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
+
+	object.Method(5)
+	object.Method(7)
+	repo.Save(&object)
+
+	object.Method(7)
+	object.Stream.events[len(object.Stream.events)-1].version = 2
+	repo.Save(&object)
+
+	if len(exentStreamFor(t, object.ObjectID())) != 3 {
+		t.Error("Should contain only one event")
+		t.FailNow()
+	}
+}
 
 func TestExentStoreSaveMultiples(t *testing.T) {
 	publisher := NewEventPublisher()

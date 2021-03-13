@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 )
@@ -134,33 +135,94 @@ func (r *ExentStoreRepository) objectRepositoryEvents(objectID string) ([]Event,
 }
 
 func (r *ExentStoreRepository) insertEvents(streamName string, events []Event) error {
+	couldInsert := false
+	var err error
+	var actualVersion int
+	for !couldInsert {
+		actualVersion, err = r.tryInsertEvent(streamName, events)
+		if actualVersion == 0 {
+			couldInsert = true
+		} else {
+			events = r.correctEventsVersion(actualVersion, events)
+		}
+	}
+
+	return err
+}
+
+func (r *ExentStoreRepository) tryInsertEvent(streamName string, events []Event) (int, error) {
 	query, err := r.marshal(events)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	jsonQuery, err := json.Marshal(query)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	req, err := http.NewRequest("POST", fmt.Sprintf("%s/api/streams/%s", r.endpoint, streamName), bytes.NewBuffer(jsonQuery))
 	req.Header.Set("Content-Type", "application/json")
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	resp, err := r.client.Do(req)
+	defer resp.Body.Close()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	if resp.StatusCode != 201 {
+	if resp.StatusCode != 201 && resp.StatusCode != 422 {
 		body, _ := ioutil.ReadAll(resp.Body)
-		return fmt.Errorf("Invalid status code %d : %s", resp.StatusCode, body)
+		return 0, fmt.Errorf("Invalid status code %d : %s", resp.StatusCode, body)
 	}
 
-	return nil
+	if resp.StatusCode == 422 {
+		return r.detectInvalidEventsError(resp.Body)
+	}
+
+	return 0, nil
+}
+
+func (r *ExentStoreRepository) correctEventsVersion(actualVersion int, events []Event) []Event {
+	fmt.Println("correction", actualVersion)
+
+	correctedEvents := make([]Event, len(events))
+	for i, event := range events {
+		correctedEvents[i] = NewEvent(
+			event.Id(),
+			event.Name(),
+			actualVersion+1,
+			event.Payload(),
+		)
+	}
+
+	return correctedEvents
+}
+
+func (r *ExentStoreRepository) detectInvalidEventsError(body io.ReadCloser) (int, error) {
+	type invalidVersion struct {
+		ActualVersion int    `json:"actual_version,omitempty"`
+		Error         string `json:"error,omitempty"`
+	}
+
+	bodyContent, err := ioutil.ReadAll(body)
+	if err != nil {
+		return 0, err
+	}
+
+	errorPayload := &invalidVersion{}
+	err = json.Unmarshal(bodyContent, errorPayload)
+	if err != nil {
+		return 0, err
+	}
+
+	if errorPayload.Error != "" && errorPayload.ActualVersion > 0 {
+		return errorPayload.ActualVersion, errors.New(errorPayload.Error)
+	}
+
+	return 0, errors.New("Unknown error")
 }
 
 func (r *ExentStoreRepository) unmarshal(stream exentstoreStream) ([]Event, error) {
