@@ -26,7 +26,7 @@ func (s *Stream) AddEvent(object DomainObject, eventName string, payload proto.M
 		return err
 	}
 
-	event := NewEvent(object.ObjectID(), eventName, s.lastVersion+1, bytePayload)
+	event := NewEvent(object.ObjectID(), eventName, s.lastVersion, bytePayload)
 	return s.LoadEvent(object, event)
 }
 

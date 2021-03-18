@@ -95,7 +95,7 @@ func TestExentStoreSaveVersionCorrection(t *testing.T) {
 	repo.Save(&object)
 
 	object.Method(7)
-	object.Stream.events[len(object.Stream.events)-1].version = 2
+	object.Stream.events[len(object.Stream.events)-1].version = 5
 	repo.Save(&object)
 
 	if len(exentStreamFor(t, object.ObjectID())) != 3 {

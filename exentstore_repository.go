@@ -168,10 +168,10 @@ func (r *ExentStoreRepository) tryInsertEvent(streamName string, events []Event)
 	}
 
 	resp, err := r.client.Do(req)
-	defer resp.Body.Close()
 	if err != nil {
 		return 0, err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != 201 && resp.StatusCode != 422 {
 		body, _ := ioutil.ReadAll(resp.Body)
@@ -186,14 +186,12 @@ func (r *ExentStoreRepository) tryInsertEvent(streamName string, events []Event)
 }
 
 func (r *ExentStoreRepository) correctEventsVersion(actualVersion int, events []Event) []Event {
-	fmt.Println("correction", actualVersion)
-
 	correctedEvents := make([]Event, len(events))
 	for i, event := range events {
 		correctedEvents[i] = NewEvent(
 			event.Id(),
 			event.Name(),
-			actualVersion+1,
+			actualVersion+i,
 			event.Payload(),
 		)
 	}
@@ -259,7 +257,7 @@ func (r *ExentStoreRepository) marshal(events []Event) (*exentstoreAppendQuery, 
 		}
 	}
 	query := exentstoreAppendQuery{
-		ExpectedVersion: events[0].Version() - 1,
+		ExpectedVersion: events[0].Version(),
 		Events:          queryEvents,
 	}
 

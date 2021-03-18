@@ -29,7 +29,7 @@ func TestAddEventToStream(t *testing.T) {
 
 	event := stream.Events()[0]
 
-	assert.Equal(t, 1, event.Version())
+	assert.Equal(t, 0, event.Version())
 	assert.Equal(t, "objectId", event.ObjectId())
 	assert.Equal(t, "NumberAdded", event.Name())
 
@@ -57,9 +57,9 @@ func TestAddMultipleEventsToStream(t *testing.T) {
 
 	events := stream.Events()
 
-	assert.Equal(t, 1, events[0].Version())
-	assert.Equal(t, 2, events[1].Version())
-	assert.Equal(t, 3, events[2].Version())
+	assert.Equal(t, 0, events[0].Version())
+	assert.Equal(t, 1, events[1].Version())
+	assert.Equal(t, 2, events[2].Version())
 
 	eventIds := make([]string, 3)
 	for idx, event := range events {
