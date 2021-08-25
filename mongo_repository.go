@@ -56,6 +56,8 @@ func (r *MongoRepository) Load(objectID string, object DomainObject) error {
 		return errors.New("Cannot load unknown object")
 	}
 
+    object.Clear()
+
 	objectEvents, err := r.objectRepositoryEvents(objectID)
 	if err != nil {
 		return err

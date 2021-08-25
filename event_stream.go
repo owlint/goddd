@@ -11,6 +11,7 @@ type EventStream interface {
 	Events() []Event
 	LastVersion() int
 	ContainsEventWithId(eventID string) bool
+    Clear()
 }
 
 // Stream is an implementation of an EventStream
@@ -55,6 +56,12 @@ func (s *Stream) ContainsEventWithId(eventId string) bool {
 		}
 	}
 	return false
+}
+
+// Clear clears the stream
+func (s *Stream) Clear() {
+    s.events = make([]Event, 0)
+    s.lastVersion = 0
 }
 
 // NewEventStream initializes a new event stream

@@ -33,6 +33,8 @@ func (r *InMemoryRepository) Load(objectID string, object DomainObject) error {
 		return errors.New("Cannot load unknown object")
 	}
 
+    object.Clear()
+
 	objectEvents := r.objectRepositoryEvents(objectID)
 	for _, event := range objectEvents {
 		object.LoadEvent(object, event)
