@@ -5,9 +5,9 @@ import "testing"
 func TestSave(t *testing.T) {
 	publisher := NewEventPublisher()
 	repo := NewInMemoryRepository(&publisher)
-	object := testDomainObject{}
+	object := Student{}
 
-	object.Method(5)
+	object.SetGrade("a")
 	repo.Save(&object)
 
 	if len(repo.eventStream) != 1 {
@@ -19,10 +19,10 @@ func TestSave(t *testing.T) {
 func TestSaveMultiples(t *testing.T) {
 	publisher := NewEventPublisher()
 	repo := NewInMemoryRepository(&publisher)
-	object := testDomainObject{}
+	object := Student{}
 
-	object.Method(5)
-	object.Method(7)
+	object.SetGrade("a")
+	object.SetGrade("a")
 	repo.Save(&object)
 
 	if len(repo.eventStream) != 2 {
@@ -34,14 +34,14 @@ func TestSaveMultiples(t *testing.T) {
 func TestSaveMultiplesObject(t *testing.T) {
 	publisher := NewEventPublisher()
 	repo := NewInMemoryRepository(&publisher)
-	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
-	object2 := testDomainObject{ID: NewIdentity("TestDomainObject")}
+	object := Student{}
+	object2 := Student{}
 
-	object.Method(5)
-	object.Method(7)
+	object.SetGrade("a")
+	object.SetGrade("a")
 	repo.Save(&object)
 
-	object2.Method(10)
+	object2.SetGrade("a")
 	repo.Save(&object2)
 
 	if len(repo.eventStream) != 3 {
@@ -53,17 +53,17 @@ func TestSaveMultiplesObject(t *testing.T) {
 func TestLoad(t *testing.T) {
 	publisher := NewEventPublisher()
 	repo := NewInMemoryRepository(&publisher)
-	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
-	object2 := testDomainObject{ID: NewIdentity("TestDomainObject")}
+	object := Student{}
+	object2 := Student{}
 
-	object.Method(5)
-	object.Method(7)
+	object.SetGrade("a")
+	object.SetGrade("a")
 	repo.Save(&object)
 
-	object2.Method(10)
+	object2.SetGrade("a")
 	repo.Save(&object2)
 
-	loadedObject := testDomainObject{}
+	loadedObject := Student{}
 	err := repo.Load(object.ObjectID(), &loadedObject)
 
 	if err != nil {
@@ -71,7 +71,7 @@ func TestLoad(t *testing.T) {
 		t.FailNow()
 	}
 
-	if loadedObject.number != 12 {
+	if loadedObject.grade != "a" {
 		t.Error("Wrong value")
 		t.FailNow()
 	}

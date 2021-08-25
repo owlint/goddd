@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+    "github.com/google/uuid"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -57,9 +59,9 @@ func TestMongoSave(t *testing.T) {
 
 	publisher := NewEventPublisher()
 	repo := NewMongoRepository(database, &publisher)
-	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
+	object := Student{}
 
-	object.Method(5)
+	object.SetGrade("a")
 	repo.Save(&object)
 
 	if len(eventStreamFor(t, database, object.ObjectID())) != 1 {
@@ -79,9 +81,9 @@ func TestMongoPublished(t *testing.T) {
 	publisher.Register(&receiver)
 	publisher.Wait = true
 	repo := NewMongoRepository(database, &publisher)
-	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
+	object := Student{}
 
-	object.Method(5)
+	object.SetGrade("a")
 	repo.Save(&object)
 
 	if len(receiver.events) != 1 {
@@ -100,9 +102,9 @@ func TestMongoPublishedNoWait(t *testing.T) {
 	publisher := NewEventPublisher()
 	publisher.Register(&receiver)
 	repo := NewMongoRepository(database, &publisher)
-	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
+	object := Student{}
 
-	object.Method(5)
+	object.SetGrade("a")
 	repo.Save(&object)
 	time.Sleep(500 * time.Millisecond)
 
@@ -118,10 +120,10 @@ func TestMongoSaveMultiples(t *testing.T) {
 
 	publisher := NewEventPublisher()
 	repo := NewMongoRepository(database, &publisher)
-	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
+    object := Student{ID: uuid.New().String()}
 
-	object.Method(5)
-	object.Method(7)
+	object.SetGrade("a")
+	object.SetGrade("a")
 	repo.Save(&object)
 
 	if len(eventStreamFor(t, database, object.ObjectID())) != 2 {
@@ -136,14 +138,14 @@ func TestMongoSaveMultiplesObject(t *testing.T) {
 
 	publisher := NewEventPublisher()
 	repo := NewMongoRepository(database, &publisher)
-	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
-	object2 := testDomainObject{ID: NewIdentity("TestDomainObject")}
+    object := Student{ID: uuid.New().String()}
+    object2 := Student{ID: uuid.New().String()}
 
-	object.Method(5)
-	object.Method(7)
+	object.SetGrade("a")
+	object.SetGrade("a")
 	repo.Save(&object)
 
-	object2.Method(10)
+	object2.SetGrade("a")
 	repo.Save(&object2)
 
 	if len(eventStreamFor(t, database, object.ObjectID())) != 2 {
@@ -158,17 +160,17 @@ func TestMongoLoad(t *testing.T) {
 
 	publisher := NewEventPublisher()
 	repo := NewMongoRepository(database, &publisher)
-	object := testDomainObject{ID: NewIdentity("TestDomainObject")}
-	object2 := testDomainObject{ID: NewIdentity("TestDomainObject")}
+    object := Student{ID: uuid.New().String()}
+    object2 := Student{ID: uuid.New().String()}
 
-	object.Method(5)
-	object.Method(7)
+	object.SetGrade("a")
+	object.SetGrade("a")
 	repo.Save(&object)
 
-	object2.Method(10)
+	object2.SetGrade("a")
 	repo.Save(&object2)
 
-	loadedObject := testDomainObject{}
+	loadedObject := Student{}
 	err := repo.Load(object.ObjectID(), &loadedObject)
 
 	if err != nil {
@@ -176,7 +178,7 @@ func TestMongoLoad(t *testing.T) {
 		t.FailNow()
 	}
 
-	if loadedObject.number != 12 {
+	if loadedObject.grade != "a" {
 		t.Error("Wrong value")
 		t.FailNow()
 	}

@@ -1,12 +1,12 @@
 package goddd
 
 import (
-	"google.golang.org/protobuf/proto"
+    "github.com/tinylib/msgp/msgp"
 )
 
 // EventStream is an interface representing a stream of events
 type EventStream interface {
-	AddEvent(object DomainObject, eventName string, payload proto.Message) error
+	AddEvent(object DomainObject, eventName string, payload msgp.Marshaler) error
 	LoadEvent(object DomainObject, event Event) error
 	Events() []Event
 	LastVersion() int
@@ -20,8 +20,8 @@ type Stream struct {
 }
 
 // AddEvent add a new event into the stream
-func (s *Stream) AddEvent(object DomainObject, eventName string, payload proto.Message) error {
-	bytePayload, err := proto.Marshal(payload)
+func (s *Stream) AddEvent(object DomainObject, eventName string, payload msgp.Marshaler) error {
+	bytePayload, err := payload.MarshalMsg(nil)
 	if err != nil {
 		return err
 	}

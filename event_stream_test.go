@@ -4,12 +4,10 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/owlint/goddd/pb"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/protobuf/proto"
 )
 
-func TestEventStreamCreation(t *testing.T) {
+func TestStreamCreation(t *testing.T) {
 	stream := NewEventStream()
 	if len(stream.Events()) > 0 {
 		t.Log("Should not contain events")
@@ -18,47 +16,40 @@ func TestEventStreamCreation(t *testing.T) {
 }
 
 func TestAddEventToStream(t *testing.T) {
-	object := testDomainObject{}
+	object := &Student{}
 	stream := object.Stream
 
-	payload := &pb.NumberAdded{}
-	payload.Nb = 3
-	stream.AddEvent(&object, "NumberAdded", payload)
+	payload := GradeSet{"b"}
+	stream.AddEvent(object, "GradeSet", payload)
 
 	assert.Len(t, stream.Events(), 1)
 
 	event := stream.Events()[0]
 
 	assert.Equal(t, 0, event.Version())
-	assert.Equal(t, "objectId", event.ObjectId())
-	assert.Equal(t, "NumberAdded", event.Name())
+    assert.Equal(t, "ObjectID", event.ObjectId())
+	assert.Equal(t, "GradeSet", event.Name())
 
-	payload.Reset()
-	err := proto.Unmarshal(event.Payload(), payload)
-	assert.Nil(t, err)
-
-	assert.Equal(t, int32(3), payload.Nb)
-	assert.Equal(t, int32(3), object.number)
+	assert.Equal(t, "b", object.grade)
 }
 
 func TestAddMultipleEventsToStream(t *testing.T) {
-	object := testDomainObject{}
+	object := &Student{}
 	stream := object.Stream
 
-	payload := &pb.NumberAdded{}
-	payload.Nb = 3
-	stream.AddEvent(&object, "number_added", payload)
-	payload.Reset()
-	payload.Nb = 2
-	stream.AddEvent(&object, "number_added", payload)
-	payload.Reset()
-	payload.Nb = 1
-	stream.AddEvent(&object, "number_added", payload)
+	payload := GradeSet{}
+	payload.Grade = "3"
+	stream.AddEvent(object, "GradeSet", payload)
+	payload.Grade = "2"
+	stream.AddEvent(object, "GradeSet", payload)
+	payload.Grade = "1"
+	stream.AddEvent(object, "GradeSet", payload)
 
 	events := stream.Events()
 
 	assert.Equal(t, 0, events[0].Version())
 	assert.Equal(t, 1, events[1].Version())
+	assert.Equal(t, 2, events[2].Version())
 	assert.Equal(t, 2, events[2].Version())
 
 	eventIds := make([]string, 3)
@@ -70,50 +61,44 @@ func TestAddMultipleEventsToStream(t *testing.T) {
 }
 
 func TestLastVersion(t *testing.T) {
-	object := testDomainObject{}
+	object := &Student{}
 	stream := object.Stream
 
-	payload := &pb.NumberAdded{}
-	payload.Nb = 3
-	stream.AddEvent(&object, "number_added", payload)
-	payload.Reset()
-	payload.Nb = 2
-	stream.AddEvent(&object, "number_added", payload)
-	payload.Reset()
-	payload.Nb = 1
-	stream.AddEvent(&object, "number_added", payload)
+	payload := GradeSet{}
+	payload.Grade = "3"
+	stream.AddEvent(object, "GradeSet", payload)
+	payload.Grade = "2"
+	stream.AddEvent(object, "GradeSet", payload)
+	payload.Grade = "1"
+	stream.AddEvent(object, "GradeSet", payload)
 
 	assert.Equal(t, 3, stream.LastVersion())
 }
 
 func TestContainsEvent(t *testing.T) {
-	object := testDomainObject{}
+	object := &Student{}
 	stream := object.Stream
 
-	payload := &pb.NumberAdded{}
-	payload.Nb = 3
-	stream.AddEvent(&object, "number_added", payload)
-	payload.Reset()
-	payload.Nb = 2
-	stream.AddEvent(&object, "number_added", payload)
-	payload.Reset()
-	payload.Nb = 1
+	payload := GradeSet{}
+	payload.Grade = "3"
+	stream.AddEvent(object, "GradeSet", payload)
+	payload.Grade = "2"
+	stream.AddEvent(object, "GradeSet", payload)
+	payload.Grade = "1"
 
 	assert.True(t, stream.ContainsEventWithId(stream.Events()[0].Id()))
 }
 
 func TestNotContainEvent(t *testing.T) {
-	object := testDomainObject{}
+	object := &Student{}
 	stream := object.Stream
 
-	payload := &pb.NumberAdded{}
-	payload.Nb = 3
-	stream.AddEvent(&object, "number_added", payload)
-	payload.Reset()
-	payload.Nb = 2
-	stream.AddEvent(&object, "number_added", payload)
-	payload.Reset()
-	payload.Nb = 1
+	payload := GradeSet{}
+	payload.Grade = "3"
+	stream.AddEvent(object, "GradeSet", payload)
+	payload.Grade = "2"
+	stream.AddEvent(object, "GradeSet", payload)
+	payload.Grade = "1"
 
 	assert.False(t, stream.ContainsEventWithId(uuid.New().String()))
 }
