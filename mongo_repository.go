@@ -3,6 +3,7 @@ package goddd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -68,7 +69,8 @@ func (r *MongoRepository) Load(objectID string, object DomainObject) error {
 	}
 
 	for _, event := range objectEvents {
-		object.LoadEvent(object, event)
+		fmt.Println("Loading event", event)
+		fmt.Println(object.LoadEvent(object, event))
 	}
 
 	return nil
@@ -119,6 +121,8 @@ func (r *MongoRepository) objectRepositoryEvents(objectID string) ([]Event, erro
 	if err != nil {
 		return fromRecords(records), err
 	}
+
+	fmt.Println(records)
 
 	return fromRecords(records), nil
 }
