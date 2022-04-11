@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-    "github.com/google/uuid"
+	"github.com/google/uuid"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -120,7 +120,7 @@ func TestMongoSaveMultiples(t *testing.T) {
 
 	publisher := NewEventPublisher()
 	repo := NewMongoRepository(database, &publisher)
-    object := Student{ID: uuid.New().String()}
+	object := Student{ID: uuid.New().String()}
 
 	object.SetGrade("a")
 	object.SetGrade("a")
@@ -138,8 +138,8 @@ func TestMongoSaveMultiplesObject(t *testing.T) {
 
 	publisher := NewEventPublisher()
 	repo := NewMongoRepository(database, &publisher)
-    object := Student{ID: uuid.New().String()}
-    object2 := Student{ID: uuid.New().String()}
+	object := Student{ID: uuid.New().String()}
+	object2 := Student{ID: uuid.New().String()}
 
 	object.SetGrade("a")
 	object.SetGrade("a")
@@ -160,8 +160,8 @@ func TestMongoLoad(t *testing.T) {
 
 	publisher := NewEventPublisher()
 	repo := NewMongoRepository(database, &publisher)
-    object := Student{ID: uuid.New().String()}
-    object2 := Student{ID: uuid.New().String()}
+	object := Student{ID: uuid.New().String()}
+	object2 := Student{ID: uuid.New().String()}
 
 	object.SetGrade("a")
 	object.SetGrade("a")
@@ -180,6 +180,78 @@ func TestMongoLoad(t *testing.T) {
 
 	if loadedObject.grade != "a" {
 		t.Error("Wrong value")
+		t.FailNow()
+	}
+}
+
+func TestMongoEventsSince(t *testing.T) {
+	client, database := connectTestMongo(t)
+	defer client.Disconnect(context.TODO())
+
+	publisher := NewEventPublisher()
+	repo := NewMongoRepository(database, &publisher)
+	object := Student{ID: uuid.New().String()}
+	object2 := Student{ID: uuid.New().String()}
+
+	object.SetGrade("a")
+	repo.Save(&object)
+	object2.SetGrade("a")
+	repo.Save(&object2)
+	before := time.Now()
+
+	time.Sleep(3 * time.Second)
+
+	object.SetGrade("b")
+	time.Sleep(100 * time.Millisecond)
+	object2.SetGrade("b")
+	repo.Save(&object)
+	repo.Save(&object2)
+
+	events, err := repo.EventsSince(before, 50)
+
+	if err != nil {
+		t.Error("No error should occur on EventsSince")
+		t.FailNow()
+	}
+
+	if len(events) != 2 {
+		t.Errorf("There should have 2 events, got %d : %v", len(events), events)
+		t.FailNow()
+	}
+}
+
+func TestMongoEventsSinceLimit(t *testing.T) {
+	client, database := connectTestMongo(t)
+	defer client.Disconnect(context.TODO())
+
+	publisher := NewEventPublisher()
+	repo := NewMongoRepository(database, &publisher)
+	object := Student{ID: uuid.New().String()}
+	object2 := Student{ID: uuid.New().String()}
+
+	object.SetGrade("a")
+	repo.Save(&object)
+	object2.SetGrade("a")
+	repo.Save(&object2)
+	before := time.Now()
+
+	time.Sleep(3 * time.Second)
+
+	object.SetGrade("b")
+	time.Sleep(100 * time.Millisecond)
+	object2.SetGrade("b")
+	repo.Save(&object)
+	repo.Save(&object2)
+
+	events, err := repo.EventsSince(before, 1)
+
+	if err != nil {
+		t.Error("No error should occur on EventsSince")
+		t.FailNow()
+	}
+
+	if len(events) != 1 {
+		t.Errorf("There should have 1 event, got %d : %v", len(events), events)
 		t.FailNow()
 	}
 }

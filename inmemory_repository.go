@@ -1,6 +1,9 @@
 package goddd
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 type InMemoryRepository struct {
 	eventStream []Event
@@ -33,7 +36,7 @@ func (r *InMemoryRepository) Load(objectID string, object DomainObject) error {
 		return errors.New("Cannot load unknown object")
 	}
 
-    object.Clear()
+	object.Clear()
 
 	objectEvents := r.objectRepositoryEvents(objectID)
 	for _, event := range objectEvents {
@@ -61,4 +64,16 @@ func (r *InMemoryRepository) objectRepositoryEvents(objectId string) []Event {
 	}
 
 	return events
+}
+
+func (r *InMemoryRepository) EventsSince(timestamp time.Time, limit int) ([]Event, error) {
+	events := make([]Event, 0)
+
+	for _, event := range r.eventStream {
+		if event.Timestamp() >= timestamp.UnixNano() && len(events) < limit {
+			events = append(events, event)
+		}
+	}
+
+	return events, nil
 }

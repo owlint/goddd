@@ -3,9 +3,11 @@ package goddd
 import (
 	"context"
 	"errors"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type record struct {
@@ -18,14 +20,16 @@ type record struct {
 }
 
 type MongoRepository struct {
-	collection *mongo.Collection
-	publisher  *EventPublisher
+	collection          *mongo.Collection
+	snapshotsCollection *mongo.Collection
+	publisher           *EventPublisher
 }
 
 func NewMongoRepository(database *mongo.Database, publisher *EventPublisher) MongoRepository {
 	return MongoRepository{
-		collection: database.Collection("event_store"),
-		publisher:  publisher,
+		collection:          database.Collection("event_store"),
+		snapshotsCollection: database.Collection("domain_event_snapshots"),
+		publisher:           publisher,
 	}
 }
 
@@ -56,7 +60,7 @@ func (r *MongoRepository) Load(objectID string, object DomainObject) error {
 		return errors.New("Cannot load unknown object")
 	}
 
-    object.Clear()
+	object.Clear()
 
 	objectEvents, err := r.objectRepositoryEvents(objectID)
 	if err != nil {
@@ -77,6 +81,28 @@ func (r *MongoRepository) Exists(objectId string) (bool, error) {
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (r *MongoRepository) EventsSince(timestamp time.Time, limit int) ([]Event, error) {
+	records := make([]record, 0)
+
+	findOptions := options.Find()
+	findOptions.SetSort(bson.M{"timestamp": 1})
+	findOptions.SetLimit(int64(limit))
+	filter := bson.M{"timestamp": bson.M{
+		"$gte": timestamp.UnixNano(),
+	}}
+	listCursor, err := r.collection.Find(context.TODO(), filter, findOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	err = listCursor.All(context.TODO(), &records)
+	if err != nil {
+		return fromRecords(records), err
+	}
+
+	return fromRecords(records), nil
 }
 
 func (r *MongoRepository) objectRepositoryEvents(objectID string) ([]Event, error) {
