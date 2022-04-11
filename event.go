@@ -58,3 +58,14 @@ func NewEvent(objectID string, eventName string, version int, payload []byte) Ev
 		payload:   payload,
 	}
 }
+
+func ReloadEvent(eventID, objectID, eventName string, version int, payload []byte, timestamp int64) Event {
+	return Event{
+		id:        eventID,
+		version:   version,
+		objectID:  objectID,
+		timestamp: timestamp,
+		name:      eventName,
+		payload:   payload,
+	}
+}
