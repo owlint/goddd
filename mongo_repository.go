@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/dgraph-io/ristretto"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -30,13 +31,20 @@ type MongoRepository struct {
 	collection          *mongo.Collection
 	snapshotsCollection *mongo.Collection
 	publisher           *EventPublisher
+	snapshotsCache      *ristretto.Cache
 }
 
 func NewMongoRepository(database *mongo.Database, publisher *EventPublisher) MongoRepository {
+	cache, _ := ristretto.NewCache(&ristretto.Config{
+		NumCounters: 1e3,
+		MaxCost:     1 << 30,
+		BufferItems: 64,
+	})
 	return MongoRepository{
 		collection:          database.Collection("event_store"),
 		snapshotsCollection: database.Collection("domain_event_snapshots"),
 		publisher:           publisher,
+		snapshotsCache:      cache,
 	}
 }
 
@@ -93,12 +101,14 @@ func (r *MongoRepository) persistSnapshot(object DomainObject, mementizer Domain
 		return err
 	}
 
+	snap := snapshot{
+		ObjectID: object.ObjectID(),
+		Version:  object.LastVersion(),
+		Payload:  bytePayload,
+	}
+
 	update := bson.M{
-		"$set": snapshot{
-			ObjectID: object.ObjectID(),
-			Version:  object.LastVersion(),
-			Payload:  bytePayload,
-		},
+		"$set": snap,
 	}
 	options := options.Update().SetUpsert(true)
 	filter := bson.M{
@@ -106,6 +116,10 @@ func (r *MongoRepository) persistSnapshot(object DomainObject, mementizer Domain
 	}
 
 	_, err = r.snapshotsCollection.UpdateOne(context.Background(), filter, update, options)
+
+	if r.snapshotsCache != nil {
+		r.snapshotsCache.Set(object.ObjectID(), snap, 1)
+	}
 
 	return err
 }
@@ -238,6 +252,14 @@ func (r *MongoRepository) objectRepositoryEvents(objectID string) ([]Event, erro
 }
 
 func (r *MongoRepository) lastSnapshot(objectID string) (*snapshot, error) {
+	if r.snapshotsCache != nil {
+		snap, ok := r.snapshotsCache.Get(objectID)
+		if ok {
+			snapshot := snap.(snapshot)
+			return &snapshot, nil
+		}
+	}
+
 	filter := bson.D{{"objectid", objectID}}
 	result := r.snapshotsCollection.FindOne(context.TODO(), filter)
 	if result != nil && result.Err() == mongo.ErrNoDocuments {
