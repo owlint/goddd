@@ -115,26 +115,30 @@ func (r *MongoRepository) Load(objectID string, object DomainObject) error {
 
 	object.Clear()
 
-	objectEvents, err := r.objectRepositoryEvents(objectID)
-	if err != nil {
-		return err
-	}
-
 	snapshot, err := r.lastSnapshot(objectID)
 	if err != nil {
 		return err
 	}
 
-	err = r.reloadSnapshot(snapshot, object)
+	var objectEvents []Event
+	if snapshot != nil {
+		err = r.reloadSnapshot(snapshot, object)
+		if err != nil {
+			return err
+		}
+		objectEvents, err = r.ObjectEventsSinceVersion(objectID, snapshot.Version)
+	} else {
+		objectEvents, err = r.objectRepositoryEvents(objectID)
+	}
+
 	if err != nil {
 		return err
 	}
 
 	for _, event := range objectEvents {
-		if snapshot != nil && event.Version() <= snapshot.Version {
-			object.appendEvent(event)
-		} else {
-			object.LoadEvent(object, event)
+		err = object.LoadEvent(object, event)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -146,6 +150,7 @@ func (r *MongoRepository) reloadSnapshot(snapshot *snapshot, object DomainObject
 	mementizer, isMemento := objectInter.(DomainObjectMemento)
 
 	if isMemento {
+		mementizer.SetVersion(snapshot.Version)
 		return mementizer.ApplyMemento(snapshot.Payload)
 	}
 	return nil
@@ -171,6 +176,30 @@ func (r *MongoRepository) EventsSince(timestamp time.Time, limit int) ([]Event, 
 	filter := bson.M{"timestamp": bson.M{
 		"$gte": timestamp.UnixNano(),
 	}}
+	listCursor, err := r.collection.Find(context.TODO(), filter, findOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	err = listCursor.All(context.TODO(), &records)
+	if err != nil {
+		return fromRecords(records), err
+	}
+
+	return fromRecords(records), nil
+}
+
+func (r *MongoRepository) ObjectEventsSinceVersion(objectID string, version int) ([]Event, error) {
+	records := make([]record, 0)
+
+	findOptions := options.Find()
+	findOptions.SetSort(bson.M{"version": 1})
+	filter := bson.M{
+		"version": bson.M{
+			"$gt": version,
+		},
+		"objectid": objectID,
+	}
 	listCursor, err := r.collection.Find(context.TODO(), filter, findOptions)
 	if err != nil {
 		return nil, err

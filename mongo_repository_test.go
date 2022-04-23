@@ -337,7 +337,7 @@ func TestMongoLoadMementizer(t *testing.T) {
 	}
 
 	if object.LastVersion() != loadedObject.LastVersion() {
-		t.Error("Different LastVersion")
+		t.Errorf("Different LastVersion, %d, %d", object.LastVersion(), loadedObject.LastVersion())
 		t.FailNow()
 	}
 }

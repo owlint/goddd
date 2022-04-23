@@ -14,4 +14,5 @@ type DomainObject interface {
 type DomainObjectMemento interface {
 	DumpMemento() (msgp.Marshaler, error)
 	ApplyMemento(payload []byte) error
+	SetVersion(version int)
 }

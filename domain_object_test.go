@@ -368,6 +368,10 @@ func (z *StudentMemento) Apply(eventName string, eventPayload []byte) error {
 	}
 }
 
+func (z *StudentMemento) SetVersion(version int) {
+	z.Stream.SetStreamVersion(version)
+}
+
 func (z *StudentMemento) ApplyMemento(payload []byte) error {
 	memento := Memento{}
 	_, err := memento.UnmarshalMsg(payload)
