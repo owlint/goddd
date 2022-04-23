@@ -93,13 +93,19 @@ func (r *MongoRepository) persistSnapshot(object DomainObject, mementizer Domain
 		return err
 	}
 
-	snap := snapshot{
-		ObjectID: object.ObjectID(),
-		Version:  object.LastVersion(),
-		Payload:  bytePayload,
+	update := bson.M{
+		"$set": snapshot{
+			ObjectID: object.ObjectID(),
+			Version:  object.LastVersion(),
+			Payload:  bytePayload,
+		},
+	}
+	options := options.Update().SetUpsert(true)
+	filter := bson.M{
+		"objectid": object.ObjectID(),
 	}
 
-	_, err = r.snapshotsCollection.InsertOne(context.Background(), snap)
+	_, err = r.snapshotsCollection.UpdateOne(context.Background(), filter, update, options)
 
 	return err
 }
