@@ -3,12 +3,19 @@ package goddd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+type snapshot struct {
+	ObjectID string
+	Version  int
+	Payload  []byte
+}
 
 type record struct {
 	ID        string
@@ -48,7 +55,53 @@ func (r *MongoRepository) Save(object DomainObject) error {
 
 	r.publisher.Publish(eventToAdd)
 
+	err = r.saveSnapshot(object)
+
+	return err
+}
+
+func (r *MongoRepository) saveSnapshot(object DomainObject) error {
+	var objectInter interface{} = object
+	mementizer, isMemento := objectInter.(DomainObjectMemento)
+
+	if isMemento {
+		lastSnapshot, err := r.lastSnapshot(object.ObjectID())
+		if err != nil {
+			return fmt.Errorf("Could not save snapshot : %s", err.Error())
+		}
+		lastVersion := 0
+		if lastSnapshot != nil {
+			lastVersion = lastSnapshot.Version
+		}
+		if object.LastVersion()-lastVersion > 500 {
+			err := r.persistSnapshot(object, mementizer)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
+}
+
+func (r *MongoRepository) persistSnapshot(object DomainObject, mementizer DomainObjectMemento) error {
+	memento, err := mementizer.DumpMemento()
+	if err != nil {
+		return err
+	}
+	bytePayload, err := memento.MarshalMsg(nil)
+	if err != nil {
+		return err
+	}
+
+	snap := snapshot{
+		ObjectID: object.ObjectID(),
+		Version:  object.LastVersion(),
+		Payload:  bytePayload,
+	}
+
+	_, err = r.snapshotsCollection.InsertOne(context.Background(), snap)
+
+	return err
 }
 
 func (r *MongoRepository) Load(objectID string, object DomainObject) error {
@@ -67,20 +120,46 @@ func (r *MongoRepository) Load(objectID string, object DomainObject) error {
 		return err
 	}
 
+	snapshot, err := r.lastSnapshot(objectID)
+	if err != nil {
+		return err
+	}
+
+	err = r.reloadSnapshot(snapshot, object)
+	if err != nil {
+		return err
+	}
+
 	for _, event := range objectEvents {
-		object.LoadEvent(object, event)
+		if snapshot != nil && event.Version() <= snapshot.Version {
+			object.appendEvent(event)
+		} else {
+			object.LoadEvent(object, event)
+		}
 	}
 
 	return nil
 }
 
+func (r *MongoRepository) reloadSnapshot(snapshot *snapshot, object DomainObject) error {
+	var objectInter interface{} = object
+	mementizer, isMemento := objectInter.(DomainObjectMemento)
+
+	if isMemento {
+		return mementizer.ApplyMemento(snapshot.Payload)
+	}
+	return nil
+}
+
 func (r *MongoRepository) Exists(objectId string) (bool, error) {
 	filter := bson.D{{"objectid", objectId}}
-	count, err := r.collection.CountDocuments(context.TODO(), filter)
-	if err != nil {
-		return false, err
+	result := r.collection.FindOne(context.TODO(), filter)
+	if result != nil && result.Err() == mongo.ErrNoDocuments {
+		return false, nil
+	} else if result.Err() != nil {
+		return false, result.Err()
 	}
-	return count > 0, nil
+	return true, nil
 }
 
 func (r *MongoRepository) EventsSince(timestamp time.Time, limit int) ([]Event, error) {
@@ -121,6 +200,24 @@ func (r *MongoRepository) objectRepositoryEvents(objectID string) ([]Event, erro
 	}
 
 	return fromRecords(records), nil
+}
+
+func (r *MongoRepository) lastSnapshot(objectID string) (*snapshot, error) {
+	filter := bson.D{{"objectid", objectID}}
+	result := r.snapshotsCollection.FindOne(context.TODO(), filter)
+	if result != nil && result.Err() == mongo.ErrNoDocuments {
+		return nil, nil
+	} else if result.Err() != nil {
+		return nil, result.Err()
+	}
+
+	lastSnapshot := snapshot{}
+	err := result.Decode(&lastSnapshot)
+	if err != nil {
+		return nil, err
+	}
+
+	return &lastSnapshot, nil
 }
 
 func toRecords(events []Event) []interface{} {

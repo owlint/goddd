@@ -21,4 +21,6 @@ func (z *Student) Apply(eventName string, eventPayload []byte) error {
             return errors.New("Unknown event type")
     }
 }
+
+
         

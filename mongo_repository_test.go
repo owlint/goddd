@@ -2,6 +2,7 @@ package goddd
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -252,6 +253,91 @@ func TestMongoEventsSinceLimit(t *testing.T) {
 
 	if len(events) != 1 {
 		t.Errorf("There should have 1 event, got %d : %v", len(events), events)
+		t.FailNow()
+	}
+}
+
+func TestMongoMementizerSnapshotSaved(t *testing.T) {
+	client, database := connectTestMongo(t)
+	defer client.Disconnect(context.TODO())
+
+	publisher := NewEventPublisher()
+	repo := NewMongoRepository(database, &publisher)
+	object := StudentMemento{ID: uuid.New().String()}
+
+	for i := 0; i < 600; i++ {
+		object.SetGrade(fmt.Sprintf("a%d", i))
+	}
+	repo.Save(&object)
+
+	filter := bson.M{"objectid": object.ObjectID()}
+	result := database.Collection("domain_event_snapshots").FindOne(context.Background(), filter)
+
+	if result.Err() != nil {
+		t.Errorf("There should have a snapshot for this object but got an error : %s", result.Err().Error())
+		t.FailNow()
+	}
+}
+
+func TestMongoNotMementizerSnapshotNotSaved(t *testing.T) {
+	client, database := connectTestMongo(t)
+	defer client.Disconnect(context.TODO())
+
+	publisher := NewEventPublisher()
+	repo := NewMongoRepository(database, &publisher)
+	object := Student{ID: uuid.New().String()}
+
+	for i := 0; i < 600; i++ {
+		object.SetGrade(fmt.Sprintf("a%d", i))
+	}
+	repo.Save(&object)
+
+	filter := bson.M{"objectid": object.ObjectID()}
+	result := database.Collection("domain_event_snapshots").FindOne(context.Background(), filter)
+
+	if result.Err() == nil || result.Err() != mongo.ErrNoDocuments {
+		t.Error("There should have a snapshot for this domain object")
+		panic(result.Err())
+	}
+}
+
+func TestMongoLoadMementizer(t *testing.T) {
+	client, database := connectTestMongo(t)
+	defer client.Disconnect(context.TODO())
+
+	publisher := NewEventPublisher()
+	repo := NewMongoRepository(database, &publisher)
+	object := StudentMemento{ID: uuid.New().String()}
+
+	for i := 0; i < 600; i++ {
+		object.SetGrade(fmt.Sprintf("a%d", i))
+	}
+	repo.Save(&object)
+	for i := 0; i < 10; i++ {
+		object.SetGrade(fmt.Sprintf("a%d", i))
+	}
+	repo.Save(&object)
+
+	loadedObject := StudentMemento{}
+	err := repo.Load(object.ObjectID(), &loadedObject)
+
+	if err != nil {
+		t.Error("Loading should not throw an error")
+		t.FailNow()
+	}
+
+	if object.ObjectID() != loadedObject.ObjectID() {
+		t.Error("Different Object IDs")
+		t.FailNow()
+	}
+
+	if object.grade != loadedObject.grade {
+		t.Error("Different grades")
+		t.FailNow()
+	}
+
+	if object.LastVersion() != loadedObject.LastVersion() {
+		t.Error("Different LastVersion")
 		t.FailNow()
 	}
 }

@@ -1,17 +1,18 @@
 package goddd
 
 import (
-    "github.com/tinylib/msgp/msgp"
+	"github.com/tinylib/msgp/msgp"
 )
 
 // EventStream is an interface representing a stream of events
 type EventStream interface {
 	AddEvent(object DomainObject, eventName string, payload msgp.Marshaler) error
+	appendEvent(event Event)
 	LoadEvent(object DomainObject, event Event) error
 	Events() []Event
 	LastVersion() int
 	ContainsEventWithId(eventID string) bool
-    Clear()
+	Clear()
 }
 
 // Stream is an implementation of an EventStream
@@ -31,10 +32,15 @@ func (s *Stream) AddEvent(object DomainObject, eventName string, payload msgp.Ma
 	return s.LoadEvent(object, event)
 }
 
-// LoadEvent load an existing event into the stream
-func (s *Stream) LoadEvent(object DomainObject, event Event) error {
+// AppendEvent appends an event to the stream
+func (s *Stream) appendEvent(event Event) {
 	s.events = append(s.events, event)
 	s.lastVersion++
+}
+
+// LoadEvent load an existing event into the stream
+func (s *Stream) LoadEvent(object DomainObject, event Event) error {
+	s.appendEvent(event)
 	return object.Apply(event.Name(), event.Payload())
 }
 
@@ -60,8 +66,8 @@ func (s *Stream) ContainsEventWithId(eventId string) bool {
 
 // Clear clears the stream
 func (s *Stream) Clear() {
-    s.events = make([]Event, 0)
-    s.lastVersion = 0
+	s.events = make([]Event, 0)
+	s.lastVersion = 0
 }
 
 // NewEventStream initializes a new event stream

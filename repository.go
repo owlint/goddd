@@ -41,7 +41,7 @@ func NewIdentity(objectType string) string {
 	return fmt.Sprintf("%s-%s", objectType, uuid.New().String())
 }
 
-func Encode(object DomainObject) ([]byte, error) {
+func Encode(object interface{}) ([]byte, error) {
 	var data bytes.Buffer
 	encoder := gob.NewEncoder(&data)
 	err := encoder.Encode(object)
@@ -52,13 +52,11 @@ func Encode(object DomainObject) ([]byte, error) {
 	return data.Bytes(), nil
 }
 
-func Decode(data []byte) (*DomainObject, error) {
-	var object *DomainObject
+func Decode(object interface{}, data []byte) error {
 	encoder := gob.NewDecoder(bytes.NewBuffer(data))
 	err := encoder.Decode(object)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	return object, nil
+	return nil
 }
