@@ -263,7 +263,10 @@ func TestMongoMementizerSnapshotSaved(t *testing.T) {
 
 	publisher := NewEventPublisher()
 	repo := NewMongoRepository(database, &publisher)
-	object := StudentMemento{ID: uuid.New().String()}
+	object := StudentMemento{
+		EventStream: &Stream{},
+		ID:          uuid.New().String(),
+	}
 
 	for i := 0; i < 600; i++ {
 		object.SetGrade(fmt.Sprintf("a%d", i))
@@ -307,7 +310,10 @@ func TestMongoLoadMementizer(t *testing.T) {
 
 	publisher := NewEventPublisher()
 	repo := NewMongoRepository(database, &publisher)
-	object := StudentMemento{ID: uuid.New().String()}
+	object := StudentMemento{
+		EventStream: &Stream{},
+		ID:          uuid.New().String(),
+	}
 
 	for i := 0; i < 600; i++ {
 		object.SetGrade(fmt.Sprintf("a%d", i))
@@ -318,7 +324,9 @@ func TestMongoLoadMementizer(t *testing.T) {
 	}
 	repo.Save(&object)
 
-	loadedObject := StudentMemento{}
+	loadedObject := StudentMemento{
+		EventStream: &Stream{},
+	}
 	err := repo.Load(object.ObjectID(), &loadedObject)
 
 	if err != nil {

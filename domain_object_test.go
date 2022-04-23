@@ -311,7 +311,7 @@ type Memento struct {
 }
 
 type StudentMemento struct {
-	Stream
+	EventStream
 
 	ID    string
 	grade string
@@ -369,7 +369,7 @@ func (z *StudentMemento) Apply(eventName string, eventPayload []byte) error {
 }
 
 func (z *StudentMemento) SetVersion(version int) {
-	z.Stream.SetStreamVersion(version)
+	z.EventStream.SetStreamVersion(version)
 }
 
 func (z *StudentMemento) ApplyMemento(payload []byte) error {
