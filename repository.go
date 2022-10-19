@@ -17,24 +17,20 @@ type Repository interface {
 }
 
 func unsavedEvents(objectEvents []Event, alreadySavedObjectEvents []Event) []Event {
+	knownIDs := make(map[string]interface{}, len(alreadySavedObjectEvents))
 	events := make([]Event, 0)
 
+	for _, event := range alreadySavedObjectEvents {
+		knownIDs[event.Id()] = nil
+	}
+
 	for _, event := range objectEvents {
-		if !isEventAlreadySaved(event, alreadySavedObjectEvents) {
+		if _, exists := knownIDs[event.Id()]; !exists {
 			events = append(events, event)
 		}
 	}
 
 	return events
-}
-
-func isEventAlreadySaved(event Event, knownEvents []Event) bool {
-	for _, knownEvent := range knownEvents {
-		if knownEvent.Id() == event.Id() {
-			return true
-		}
-	}
-	return false
 }
 
 func NewIdentity(objectType string) string {
