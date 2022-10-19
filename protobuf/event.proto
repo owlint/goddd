@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package protobuf;
+
+option go_package = "github.com/owlint/goddd/protobuf";
+
+
+message EventSourcingEvent {
+  reserved 5;
+
+  int64 Timestamp = 1;
+  string ObjectID = 2;
+  string Name = 3;
+  string Payload = 4;
+  int32 Version = 6;
+}

@@ -36,3 +36,19 @@ func BenchmarkEventCreation(b *testing.B) {
 	objectID := uuid.New().String()
 	benchmarkEventCreation(objectID, "eventName", 3, []byte{1, 2, 3}, b)
 }
+
+func TestSerialize(t *testing.T) {
+	event := NewEvent(uuid.New().String(), "eventCreated", 3, []byte{1, 2, 3})
+	serialized, err := event.Serialize()
+
+	assert.NoError(t, err)
+
+	reloaded, err := Deserialize(serialized)
+	assert.NoError(t, err)
+
+	assert.Equal(t, event.ObjectId(), reloaded.ObjectId())
+	assert.InDelta(t, event.Timestamp(), reloaded.Timestamp(), float64(time.Second))
+	assert.Equal(t, event.Name(), reloaded.Name())
+	assert.Equal(t, event.Version(), reloaded.Version())
+	assert.Equal(t, event.Payload(), reloaded.Payload())
+}
