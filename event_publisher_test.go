@@ -1,10 +1,13 @@
 package goddd
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/go-redis/redis/v9"
+	"github.com/golang/mock/gomock"
+	"github.com/owlint/goddd/mocks"
 	"github.com/owlint/goddd/services"
 	"github.com/owlint/goddd/testutils"
 	"github.com/stretchr/testify/assert"
@@ -131,4 +134,38 @@ func TestRemotePublishMultiple(t *testing.T) {
 		assert.Len(t, errChan, 0)
 		assert.Len(t, receiver.events, 2)
 	})
+}
+
+func TestRemotePublishQueueError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	queue := mocks.NewMockQueueService(ctrl)
+
+	queue.EXPECT().Push(gomock.Any(), gomock.Any()).Return(errors.New("bam"))
+
+	errChan := make(chan error, 1)
+	remotePublisher := NewRemoteEventPublisher(queue, errChan)
+
+	remotePublisher.OnEvent(NewEvent("TestObject", "name", 1, []byte{1, 2}))
+	assert.Len(t, errChan, 1)
+}
+
+func TestRemoteListenerQueueError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	queue := mocks.NewMockQueueService(ctrl)
+
+	queue.EXPECT().Pop(gomock.Any()).AnyTimes().Return(nil, errors.New("boum"))
+
+	errChan := make(chan error, 1)
+	receiver := testReceiver{
+		events: make([]Event, 0),
+	}
+
+	remoteListener := NewRemoteEventListener(queue, &receiver, errChan)
+
+	go remoteListener.Listen()
+
+	// // HACK: wait for listener
+	time.Sleep(time.Second)
+
+	assert.Len(t, errChan, 1)
 }

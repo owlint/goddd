@@ -1,5 +1,7 @@
 package services
 
+//go:generate go run github.com/golang/mock/mockgen -destination=../mocks/mock_queue_service.go -package=mocks github.com/owlint/goddd/services QueueService
+
 import (
 	"context"
 

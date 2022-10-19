@@ -52,7 +52,7 @@ func (event Event) Payload() []byte {
 func (event Event) Serialize() ([]byte, error) {
 	unixTimestamp := time.Unix(0, event.Timestamp()).Unix()
 
-	pbEvent := &protobuf.EventSourcingEvent{
+	pbEvent := &protobuf.Event{
 		Timestamp: unixTimestamp,
 		ObjectID:  event.ObjectId(),
 		Name:      event.Name(),
@@ -87,7 +87,7 @@ func ReloadEvent(eventID, objectID, eventName string, version int, payload []byt
 }
 
 func Deserialize(message []byte) (Event, error) {
-	pbEvent := protobuf.EventSourcingEvent{}
+	pbEvent := protobuf.Event{}
 	proto.Unmarshal(message, &pbEvent)
 
 	event := Event{

@@ -1,11 +1,11 @@
 syntax = "proto3";
 
-package protobuf;
+package eventsourcing;
 
 option go_package = "github.com/owlint/goddd/protobuf";
 
 
-message EventSourcingEvent {
+message Event {
   reserved 5;
 
   int64 Timestamp = 1;

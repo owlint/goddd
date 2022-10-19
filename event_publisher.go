@@ -92,6 +92,7 @@ func NewRemoteEventListener(queue services.QueueService, receiver EventReceiver,
 	return RemoteEventListener{
 		queue:    queue,
 		receiver: receiver,
+		errChan:  errChan,
 	}
 }
 
