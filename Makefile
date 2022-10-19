@@ -1,3 +1,5 @@
+export REDIS_HOST = localhost
+
 # Usage: `make test ARGS=./infrastructure/persistance/views -run TestFunc`.
 TEST_ARGS := $(if $(ARGS),$(ARGS),./...)
 
