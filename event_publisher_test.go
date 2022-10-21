@@ -29,10 +29,12 @@ func TestPublished(t *testing.T) {
 	}
 
 	publisher.Register(&receiver)
-
-	publisher.Publish([]Event{NewEvent("TestObject", "name", 1, []byte{1, 2})})
+	event := NewEvent("TestObject", "name", 1, []byte{1, 2})
+	publisher.Publish([]Event{event})
 
 	assert.Len(t, receiver.events, 1)
+	assertEventsEqual(t, event, receiver.events[0])
+
 }
 
 func TestOnEvent(t *testing.T) {
@@ -43,10 +45,11 @@ func TestOnEvent(t *testing.T) {
 	}
 
 	publisher.Register(&receiver)
-
-	publisher.OnEvent(NewEvent("TestObject", "name", 1, []byte{1, 2}))
+	event := NewEvent("TestObject", "name", 1, []byte{1, 2})
+	publisher.OnEvent(event)
 
 	assert.Len(t, receiver.events, 1)
+	assertEventsEqual(t, event, receiver.events[0])
 }
 
 func TestMultipleReceivers(t *testing.T) {
@@ -62,10 +65,13 @@ func TestMultipleReceivers(t *testing.T) {
 	publisher.Register(&receiver1)
 	publisher.Register(&receiver2)
 
-	publisher.Publish([]Event{NewEvent("TestObject", "name", 1, []byte{1, 2})})
+	event := NewEvent("TestObject", "name", 1, []byte{1, 2})
+	publisher.Publish([]Event{event})
 
 	assert.Len(t, receiver1.events, 1)
+	assertEventsEqual(t, event, receiver1.events[0])
 	assert.Len(t, receiver2.events, 1)
+	assertEventsEqual(t, event, receiver2.events[0])
 }
 
 func TestMultiplePublishAndReceivers(t *testing.T) {
@@ -102,13 +108,15 @@ func TestRemotePublish(t *testing.T) {
 		remoteListener := NewRemoteEventListener(queue, &receiver, errChan)
 
 		go remoteListener.Listen()
-		remotePublisher.OnEvent(NewEvent("TestObject", "name", 1, []byte{1, 2}))
+		event := NewEvent("TestObject", "name", 1, []byte{1, 2})
+		remotePublisher.OnEvent(event)
 
 		// HACK: wait for event to be processed by listener
 		time.Sleep(time.Second)
 
 		assert.Len(t, errChan, 0)
 		assert.Len(t, receiver.events, 1)
+		assertEventsEqual(t, event, receiver.events[0])
 	})
 }
 
@@ -125,14 +133,18 @@ func TestRemotePublishMultiple(t *testing.T) {
 		remoteListener := NewRemoteEventListener(queue, &receiver, errChan)
 
 		go remoteListener.Listen()
-		remotePublisher.OnEvent(NewEvent("TestObject", "name", 1, []byte{1, 2}))
-		remotePublisher.OnEvent(NewEvent("TestObject2", "name", 1, []byte{1, 2}))
+		event1 := NewEvent("TestObject", "name", 1, []byte{1, 2})
+		event2 := NewEvent("TestObject2", "name", 1, []byte{1, 2})
+		remotePublisher.OnEvent(event1)
+		remotePublisher.OnEvent(event2)
 
 		// HACK: wait for events to be processed by listener
 		time.Sleep(time.Second)
 
 		assert.Len(t, errChan, 0)
 		assert.Len(t, receiver.events, 2)
+		assertEventsEqual(t, event1, receiver.events[0])
+		assertEventsEqual(t, event2, receiver.events[1])
 	})
 }
 
@@ -140,20 +152,23 @@ func TestRemotePublishQueueError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	queue := mocks.NewMockQueueService(ctrl)
 
-	queue.EXPECT().Push(gomock.Any(), gomock.Any()).Return(errors.New("bam"))
+	err := errors.New("bam")
+	queue.EXPECT().Push(gomock.Any(), gomock.Any()).Return(err)
 
 	errChan := make(chan error, 1)
 	remotePublisher := NewRemoteEventPublisher(queue, errChan)
 
 	remotePublisher.OnEvent(NewEvent("TestObject", "name", 1, []byte{1, 2}))
 	assert.Len(t, errChan, 1)
+	assert.Equal(t, err, <-errChan)
 }
 
 func TestRemoteListenerQueueError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	queue := mocks.NewMockQueueService(ctrl)
 
-	queue.EXPECT().Pop(gomock.Any()).AnyTimes().Return(nil, errors.New("boum"))
+	err := errors.New("boum")
+	queue.EXPECT().Pop(gomock.Any()).AnyTimes().Return(nil, err)
 
 	errChan := make(chan error, 1)
 	receiver := testReceiver{
@@ -168,4 +183,5 @@ func TestRemoteListenerQueueError(t *testing.T) {
 	time.Sleep(time.Second)
 
 	assert.Len(t, errChan, 1)
+	assert.Equal(t, err, <-errChan)
 }
