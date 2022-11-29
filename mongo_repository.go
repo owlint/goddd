@@ -200,6 +200,7 @@ func (r *MongoRepository) EventsSince(timestamp time.Time, limit int) ([]Event, 
 	if err != nil {
 		return nil, err
 	}
+	defer listCursor.Close(context.TODO())
 
 	err = listCursor.All(context.TODO(), &records)
 	if err != nil {
@@ -224,6 +225,7 @@ func (r *MongoRepository) ObjectEventsSinceVersion(objectID string, version int)
 	if err != nil {
 		return nil, err
 	}
+	defer listCursor.Close(context.TODO())
 
 	err = listCursor.All(context.TODO(), &records)
 	if err != nil {
@@ -239,10 +241,10 @@ func (r *MongoRepository) knownEventIDs(objectID string) ([]string, error) {
 	filter := bson.D{{"objectid", objectID}}
 	opts := options.Find().SetProjection(bson.D{{"id", 1}})
 	cursor, err := r.collection.Find(context.TODO(), filter, opts)
-
 	if err != nil {
 		return nil, err
 	}
+	defer cursor.Close(context.TODO())
 
 	var eventID struct {
 		ID string
@@ -263,10 +265,10 @@ func (r *MongoRepository) objectRepositoryEvents(objectID string) ([]Event, erro
 
 	filter := bson.D{{"objectid", objectID}}
 	cursor, err := r.collection.Find(context.TODO(), filter)
-
 	if err != nil {
 		return fromRecords(records), err
 	}
+	defer cursor.Close(context.TODO())
 
 	err = cursor.All(context.TODO(), &records)
 	if err != nil {
