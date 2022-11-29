@@ -16,12 +16,12 @@ type Repository interface {
 	EventsSince(time time.Time, limit int) ([]Event, error)
 }
 
-func unsavedEvents(objectEvents []Event, alreadySavedObjectEvents []Event) []Event {
-	knownIDs := make(map[string]interface{}, len(alreadySavedObjectEvents))
+func unsavedEvents(objectEvents []Event, knownEventIDs []string) []Event {
+	knownIDs := make(map[string]struct{}, len(knownEventIDs))
 	events := make([]Event, 0)
 
-	for _, event := range alreadySavedObjectEvents {
-		knownIDs[event.Id()] = nil
+	for _, eventID := range knownEventIDs {
+		knownIDs[eventID] = struct{}{}
 	}
 
 	for _, event := range objectEvents {
