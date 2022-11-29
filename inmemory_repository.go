@@ -18,9 +18,9 @@ func NewInMemoryRepository(publisher *EventPublisher) InMemoryRepository {
 }
 
 func (r *InMemoryRepository) Save(object DomainObject) error {
-	objectRepoEvents := r.knownEventIDs(object.ObjectID())
+	objectRepoEventsIDs := r.knownEventIDs(object.ObjectID())
 	objectEvents := object.Events()
-	eventToAdd := unsavedEvents(objectEvents, objectRepoEvents)
+	eventToAdd := unsavedEvents(objectEvents, objectRepoEventsIDs)
 
 	r.eventStream = append(r.eventStream, eventToAdd...)
 

@@ -237,7 +237,8 @@ func (r *MongoRepository) knownEventIDs(objectID string) ([]string, error) {
 	records := make([]string, 0)
 
 	filter := bson.D{{"objectid", objectID}}
-	cursor, err := r.collection.Find(context.TODO(), filter)
+	opts := options.Find().SetProjection(bson.D{{"id", 1}})
+	cursor, err := r.collection.Find(context.TODO(), filter, opts)
 
 	if err != nil {
 		return nil, err
@@ -251,8 +252,7 @@ func (r *MongoRepository) knownEventIDs(objectID string) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		eventIDCopy := eventID.ID
-		records = append(records, eventIDCopy)
+		records = append(records, eventID.ID)
 	}
 
 	return records, nil

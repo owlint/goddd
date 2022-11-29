@@ -17,11 +17,11 @@ type Repository interface {
 }
 
 func unsavedEvents(objectEvents []Event, knownEventIDs []string) []Event {
-	knownIDs := make(map[string]interface{}, len(knownEventIDs))
+	knownIDs := make(map[string]struct{}, len(knownEventIDs))
 	events := make([]Event, 0)
 
 	for _, eventID := range knownEventIDs {
-		knownIDs[eventID] = nil
+		knownIDs[eventID] = struct{}{}
 	}
 
 	for _, event := range objectEvents {
