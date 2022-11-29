@@ -27,7 +27,7 @@ func TestAddEventToStream(t *testing.T) {
 	event := stream.Events()[0]
 
 	assert.Equal(t, 0, event.Version())
-    assert.Equal(t, "ObjectID", event.ObjectId())
+	assert.Equal(t, "ObjectID", event.ObjectId())
 	assert.Equal(t, "GradeSet", event.Name())
 
 	assert.Equal(t, "b", object.grade)
@@ -58,6 +58,44 @@ func TestAddMultipleEventsToStream(t *testing.T) {
 	}
 
 	assert.True(t, allDifferent(eventIds))
+}
+func TestUnsavedEvents(t *testing.T) {
+	t.Run("With unsaved events", func(t *testing.T) {
+		object := &Student{}
+		stream := object.Stream
+
+		payload := GradeSet{"b"}
+		bytePayload, err := payload.MarshalMsg(nil)
+		assert.NoError(t, err)
+		event := NewEvent(object.ID, "GradeSet", object.lastVersion, bytePayload)
+		stream.LoadEvent(object, event)
+		assert.Len(t, stream.Events(), 1)
+
+		payload = GradeSet{"c"}
+		stream.AddEvent(object, "GradeSet", payload)
+		assert.Len(t, stream.Events(), 2)
+
+		assert.Len(t, stream.UnsavedEvents(), 1)
+		event = stream.UnsavedEvents()[0]
+		assert.Equal(t, 1, event.Version())
+		assert.Equal(t, "ObjectID", event.ObjectId())
+		assert.Equal(t, "GradeSet", event.Name())
+
+		assert.Equal(t, "c", object.grade)
+	})
+	t.Run("Without unsaved events", func(t *testing.T) {
+		object := &Student{}
+		stream := object.Stream
+
+		payload := GradeSet{"b"}
+		bytePayload, err := payload.MarshalMsg(nil)
+		assert.NoError(t, err)
+		event := NewEvent(object.ID, "GradeSet", object.lastVersion, bytePayload)
+		stream.LoadEvent(object, event)
+		assert.Len(t, stream.Events(), 1)
+
+		assert.Len(t, stream.UnsavedEvents(), 0)
+	})
 }
 
 func TestLastVersion(t *testing.T) {

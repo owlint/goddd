@@ -9,6 +9,7 @@ type EventStream interface {
 	AddEvent(object DomainObject, eventName string, payload msgp.Marshaler) error
 	LoadEvent(object DomainObject, event Event) error
 	Events() []Event
+	UnsavedEvents() []Event
 	LastVersion() int
 	SetStreamVersion(version int)
 	ContainsEventWithId(eventID string) bool
@@ -17,8 +18,9 @@ type EventStream interface {
 
 // Stream is an implementation of an EventStream
 type Stream struct {
-	events      []Event
-	lastVersion int
+	events        []Event
+	unsavedEvents []*Event
+	lastVersion   int
 }
 
 // AddEvent add a new event into the stream
@@ -29,6 +31,7 @@ func (s *Stream) AddEvent(object DomainObject, eventName string, payload msgp.Ma
 	}
 
 	event := NewEvent(object.ObjectID(), eventName, s.lastVersion, bytePayload)
+	s.unsavedEvents = append(s.unsavedEvents, &event)
 	return s.LoadEvent(object, event)
 }
 
@@ -42,6 +45,14 @@ func (s *Stream) LoadEvent(object DomainObject, event Event) error {
 // Events returns all the events of this stream
 func (s *Stream) Events() []Event {
 	return s.events
+}
+
+func (s *Stream) UnsavedEvents() []Event {
+	events := make([]Event, len(s.unsavedEvents))
+	for i, event := range s.unsavedEvents {
+		events[i] = *event
+	}
+	return events
 }
 
 // LastVersion returns the last known version
