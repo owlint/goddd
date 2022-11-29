@@ -49,14 +49,14 @@ func NewMongoRepository(database *mongo.Database, publisher *EventPublisher) Mon
 }
 
 func (r *MongoRepository) Save(object DomainObject) error {
-	objectRepoEvents, err := r.objectRepositoryEvents(object.ObjectID())
+	knownEventIDs, err := r.knownEventIDs(object.ObjectID())
 
 	if err != nil {
 		return err
 	}
 
 	objectEvents := object.Events()
-	eventToAdd := unsavedEvents(objectEvents, objectRepoEvents)
+	eventToAdd := unsavedEvents(objectEvents, knownEventIDs)
 
 	records := toRecords(eventToAdd)
 	r.collection.InsertMany(context.TODO(), records)
@@ -231,6 +231,31 @@ func (r *MongoRepository) ObjectEventsSinceVersion(objectID string, version int)
 	}
 
 	return fromRecords(records), nil
+}
+
+func (r *MongoRepository) knownEventIDs(objectID string) ([]string, error) {
+	records := make([]string, 0)
+
+	filter := bson.D{{"objectid", objectID}}
+	cursor, err := r.collection.Find(context.TODO(), filter)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var eventID struct {
+		ID string
+	}
+	for cursor.Next(context.TODO()) {
+		err = cursor.Decode(&eventID)
+		if err != nil {
+			return nil, err
+		}
+		eventIDCopy := eventID.ID
+		records = append(records, eventIDCopy)
+	}
+
+	return records, nil
 }
 
 func (r *MongoRepository) objectRepositoryEvents(objectID string) ([]Event, error) {
