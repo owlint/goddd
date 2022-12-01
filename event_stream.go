@@ -9,7 +9,7 @@ type EventStream interface {
 	AddEvent(object DomainObject, eventName string, payload msgp.Marshaler) error
 	LoadEvent(object DomainObject, event Event) error
 	Events() []Event
-	UnsavedEvents() []Event
+	CollectUnsavedEvents() []Event
 	LastVersion() int
 	SetStreamVersion(version int)
 	ContainsEventWithId(eventID string) bool
@@ -47,11 +47,12 @@ func (s *Stream) Events() []Event {
 	return s.events
 }
 
-func (s *Stream) UnsavedEvents() []Event {
+func (s *Stream) CollectUnsavedEvents() []Event {
 	events := make([]Event, len(s.unsavedEvents))
 	for i, event := range s.unsavedEvents {
 		events[i] = *event
 	}
+	s.unsavedEvents = nil
 	return events
 }
 

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -55,20 +56,37 @@ func eventStreamFor(t *testing.T, database *mongo.Database, objectID string) []E
 }
 
 func TestMongoSave(t *testing.T) {
-	client, database := connectTestMongo(t)
-	defer client.Disconnect(context.TODO())
+	t.Run("With valid data", func(t *testing.T) {
+		client, database := connectTestMongo(t)
+		defer client.Disconnect(context.TODO())
 
-	publisher := NewEventPublisher()
-	repo := NewMongoRepository(database, &publisher)
-	object := Student{}
+		publisher := NewEventPublisher()
+		repo := NewMongoRepository(database, &publisher)
+		object := Student{ID: uuid.NewString()}
 
-	object.SetGrade("a")
-	repo.Save(&object)
+		object.SetGrade("a")
+		repo.Save(&object)
 
-	if len(eventStreamFor(t, database, object.ObjectID())) != 1 {
-		t.Error("Should contain only one event")
-		t.FailNow()
-	}
+		assert.Len(t, eventStreamFor(t, database, object.ObjectID()), 1)
+	})
+	t.Run("save is idempotent", func(t *testing.T) {
+		client, database := connectTestMongo(t)
+		defer client.Disconnect(context.TODO())
+
+		publisher := NewEventPublisher()
+		repo := NewMongoRepository(database, &publisher)
+		object := Student{ID: uuid.NewString()}
+
+		object.SetGrade("a")
+		repo.Save(&object)
+		assert.Len(t, eventStreamFor(t, database, object.ObjectID()), 1)
+
+		object.SetGrade("a")
+		repo.Save(&object)
+		assert.Len(t, eventStreamFor(t, database, object.ObjectID()), 2)
+		repo.Save(&object)
+		assert.Len(t, eventStreamFor(t, database, object.ObjectID()), 2)
+	})
 }
 
 func TestMongoPublished(t *testing.T) {

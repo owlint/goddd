@@ -49,7 +49,7 @@ func NewMongoRepository(database *mongo.Database, publisher *EventPublisher) Mon
 }
 
 func (r *MongoRepository) Save(object DomainObject) error {
-	eventToAdd := object.UnsavedEvents()
+	eventToAdd := object.CollectUnsavedEvents()
 
 	records := toRecords(eventToAdd)
 	r.collection.InsertMany(context.TODO(), records)
