@@ -67,10 +67,7 @@ func TestMongoSave(t *testing.T) {
 		object.SetGrade("a")
 		repo.Save(&object)
 
-		if len(eventStreamFor(t, database, object.ObjectID())) != 1 {
-			t.Error("Should contain only one event")
-			t.FailNow()
-		}
+		assert.Len(t, eventStreamFor(t, database, object.ObjectID()), 1)
 	})
 	t.Run("save is idempotent", func(t *testing.T) {
 		client, database := connectTestMongo(t)

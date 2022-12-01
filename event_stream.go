@@ -52,7 +52,7 @@ func (s *Stream) CollectUnsavedEvents() []Event {
 	for i, event := range s.unsavedEvents {
 		events[i] = *event
 	}
-	s.unsavedEvents = make([]*Event, 0)
+	s.unsavedEvents = nil
 	return events
 }
 
