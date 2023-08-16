@@ -232,7 +232,7 @@ func (r *MongoRepository) objectRepositoryEvents(objectID string) ([]Event, erro
 	records := make([]record, 0)
 
 	filter := bson.D{{"objectid", objectID}}
-	opts := options.Find().SetSort(bson.M{"version": "1"})
+	opts := options.Find().SetSort(bson.M{"version": 1})
 
 	cursor, err := r.collection.Find(context.TODO(), filter, opts)
 	if err != nil {
