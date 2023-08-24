@@ -1,0 +1,32 @@
+[
+  {
+    "createIndexes": "event_store",
+    "indexes": [
+      {
+        "key": {
+          "objectid": 1
+        },
+        "name": "objectID",
+        "background": true,
+        "unique": false
+      },
+      {
+        "key": {
+          "objectid": 1,
+          "version": 1
+        },
+        "name": "objectID_version_unique",
+        "background": true,
+        "unique": true
+      },
+      {
+        "key": {
+          "id": 1
+        },
+        "name": "eventid_unique",
+        "background": true,
+        "unique": true
+      }
+    ]
+  }
+]

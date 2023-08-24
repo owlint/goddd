@@ -1,0 +1,14 @@
+[
+  {
+    "dropIndexes": "event_store",
+    "index": "objectID"
+  },
+  {
+    "dropIndexes": "event_store",
+    "index": "objectID_version_unique"
+  },
+  {
+    "dropIndexes": "event_store",
+    "index": "eventid_unique"
+  }
+]

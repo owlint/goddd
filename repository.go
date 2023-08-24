@@ -3,11 +3,14 @@ package goddd
 import (
 	"bytes"
 	"encoding/gob"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+var ConcurrencyError = errors.New("Concurrency error while saving")
 
 type Repository interface {
 	Save(object DomainObject) error

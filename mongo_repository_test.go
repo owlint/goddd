@@ -2,6 +2,7 @@ package goddd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -61,11 +62,13 @@ func TestMongoSave(t *testing.T) {
 		defer client.Disconnect(context.TODO())
 
 		publisher := NewEventPublisher()
-		repo := NewMongoRepository(database, &publisher)
+		repo, err := NewMongoRepository(database, &publisher)
+		assert.NoError(t, err)
 		object := Student{ID: uuid.NewString()}
 
 		object.SetGrade("a")
-		repo.Save(&object)
+		err = repo.Save(&object)
+		assert.NoError(t, err)
 
 		assert.Len(t, eventStreamFor(t, database, object.ObjectID()), 1)
 	})
@@ -74,18 +77,46 @@ func TestMongoSave(t *testing.T) {
 		defer client.Disconnect(context.TODO())
 
 		publisher := NewEventPublisher()
-		repo := NewMongoRepository(database, &publisher)
+		repo, err := NewMongoRepository(database, &publisher)
+		assert.NoError(t, err)
 		object := Student{ID: uuid.NewString()}
 
 		object.SetGrade("a")
-		repo.Save(&object)
+		err = repo.Save(&object)
+		assert.NoError(t, err)
 		assert.Len(t, eventStreamFor(t, database, object.ObjectID()), 1)
 
 		object.SetGrade("a")
-		repo.Save(&object)
+		err = repo.Save(&object)
+		assert.NoError(t, err)
 		assert.Len(t, eventStreamFor(t, database, object.ObjectID()), 2)
-		repo.Save(&object)
+		err = repo.Save(&object)
+		assert.NoError(t, err)
 		assert.Len(t, eventStreamFor(t, database, object.ObjectID()), 2)
+	})
+
+	t.Run("Concurrency error", func(t *testing.T) {
+		client, database := connectTestMongo(t)
+		defer client.Disconnect(context.TODO())
+
+		publisher := NewEventPublisher()
+		repo, err := NewMongoRepository(database, &publisher)
+		assert.NoError(t, err)
+		object := Student{ID: uuid.NewString()}
+
+		object.SetGrade("a")
+		err = repo.Save(&object)
+		assert.NoError(t, err)
+
+		object2 := object
+		object2.SetGrade("b")
+		err = repo.Save(&object2)
+		assert.NoError(t, err)
+
+		object.SetGrade("c")
+		err = repo.Save(&object)
+		assert.Error(t, err)
+		assert.True(t, errors.Is(err, ConcurrencyError))
 	})
 }
 
@@ -99,11 +130,13 @@ func TestMongoPublished(t *testing.T) {
 	publisher := NewEventPublisher()
 	publisher.Register(&receiver)
 	publisher.Wait = true
-	repo := NewMongoRepository(database, &publisher)
+	repo, err := NewMongoRepository(database, &publisher)
+	assert.NoError(t, err)
 	object := Student{}
 
 	object.SetGrade("a")
-	repo.Save(&object)
+	err = repo.Save(&object)
+	assert.NoError(t, err)
 
 	if len(receiver.events) != 1 {
 		t.Error("No events received")
@@ -120,11 +153,15 @@ func TestMongoPublishedNoWait(t *testing.T) {
 	}
 	publisher := NewEventPublisher()
 	publisher.Register(&receiver)
-	repo := NewMongoRepository(database, &publisher)
-	object := Student{}
+	repo, err := NewMongoRepository(database, &publisher)
+	assert.NoError(t, err)
+	object := Student{
+		ID: uuid.New().String(),
+	}
 
 	object.SetGrade("a")
-	repo.Save(&object)
+	err = repo.Save(&object)
+	assert.NoError(t, err)
 	time.Sleep(500 * time.Millisecond)
 
 	if len(receiver.events) != 1 {
@@ -138,12 +175,14 @@ func TestMongoSaveMultiples(t *testing.T) {
 	defer client.Disconnect(context.TODO())
 
 	publisher := NewEventPublisher()
-	repo := NewMongoRepository(database, &publisher)
+	repo, err := NewMongoRepository(database, &publisher)
+	assert.NoError(t, err)
 	object := Student{ID: uuid.New().String()}
 
 	object.SetGrade("a")
 	object.SetGrade("a")
-	repo.Save(&object)
+	err = repo.Save(&object)
+	assert.NoError(t, err)
 
 	if len(eventStreamFor(t, database, object.ObjectID())) != 2 {
 		t.Error("Should contain only one event")
@@ -156,16 +195,20 @@ func TestMongoSaveMultiplesObject(t *testing.T) {
 	defer client.Disconnect(context.TODO())
 
 	publisher := NewEventPublisher()
-	repo := NewMongoRepository(database, &publisher)
+	repo, err := NewMongoRepository(database, &publisher)
+	assert.NoError(t, err)
+
 	object := Student{ID: uuid.New().String()}
 	object2 := Student{ID: uuid.New().String()}
 
 	object.SetGrade("a")
 	object.SetGrade("a")
-	repo.Save(&object)
+	err = repo.Save(&object)
+	assert.NoError(t, err)
 
 	object2.SetGrade("a")
-	repo.Save(&object2)
+	err = repo.Save(&object2)
+	assert.NoError(t, err)
 
 	if len(eventStreamFor(t, database, object.ObjectID())) != 2 {
 		t.Errorf("Should contain only one event : %d", len(eventStreamFor(t, database, object.ObjectID())))
@@ -178,19 +221,22 @@ func TestMongoLoad(t *testing.T) {
 	defer client.Disconnect(context.TODO())
 
 	publisher := NewEventPublisher()
-	repo := NewMongoRepository(database, &publisher)
+	repo, err := NewMongoRepository(database, &publisher)
+	assert.NoError(t, err)
 	object := Student{ID: uuid.New().String()}
 	object2 := Student{ID: uuid.New().String()}
 
 	object.SetGrade("a")
 	object.SetGrade("a")
-	repo.Save(&object)
+	err = repo.Save(&object)
+	assert.NoError(t, err)
 
 	object2.SetGrade("a")
-	repo.Save(&object2)
+	err = repo.Save(&object2)
+	assert.NoError(t, err)
 
 	loadedObject := Student{}
-	err := repo.Load(object.ObjectID(), &loadedObject)
+	err = repo.Load(object.ObjectID(), &loadedObject)
 
 	if err != nil {
 		t.Errorf("No error should occur on load : %v", err)
@@ -208,14 +254,17 @@ func TestMongoEventsSince(t *testing.T) {
 	defer client.Disconnect(context.TODO())
 
 	publisher := NewEventPublisher()
-	repo := NewMongoRepository(database, &publisher)
+	repo, err := NewMongoRepository(database, &publisher)
+	assert.NoError(t, err)
 	object := Student{ID: uuid.New().String()}
 	object2 := Student{ID: uuid.New().String()}
 
 	object.SetGrade("a")
-	repo.Save(&object)
+	err = repo.Save(&object)
+	assert.NoError(t, err)
 	object2.SetGrade("a")
-	repo.Save(&object2)
+	err = repo.Save(&object2)
+	assert.NoError(t, err)
 	before := time.Now()
 
 	time.Sleep(3 * time.Second)
@@ -223,8 +272,10 @@ func TestMongoEventsSince(t *testing.T) {
 	object.SetGrade("b")
 	time.Sleep(100 * time.Millisecond)
 	object2.SetGrade("b")
-	repo.Save(&object)
-	repo.Save(&object2)
+	err = repo.Save(&object)
+	assert.NoError(t, err)
+	err = repo.Save(&object2)
+	assert.NoError(t, err)
 
 	events, err := repo.EventsSince(before, 50)
 
@@ -244,14 +295,17 @@ func TestMongoEventsSinceLimit(t *testing.T) {
 	defer client.Disconnect(context.TODO())
 
 	publisher := NewEventPublisher()
-	repo := NewMongoRepository(database, &publisher)
+	repo, err := NewMongoRepository(database, &publisher)
+	assert.NoError(t, err)
 	object := Student{ID: uuid.New().String()}
 	object2 := Student{ID: uuid.New().String()}
 
 	object.SetGrade("a")
-	repo.Save(&object)
+	err = repo.Save(&object)
+	assert.NoError(t, err)
 	object2.SetGrade("a")
-	repo.Save(&object2)
+	err = repo.Save(&object2)
+	assert.NoError(t, err)
 	before := time.Now()
 
 	time.Sleep(3 * time.Second)
@@ -259,8 +313,10 @@ func TestMongoEventsSinceLimit(t *testing.T) {
 	object.SetGrade("b")
 	time.Sleep(100 * time.Millisecond)
 	object2.SetGrade("b")
-	repo.Save(&object)
-	repo.Save(&object2)
+	err = repo.Save(&object)
+	assert.NoError(t, err)
+	err = repo.Save(&object2)
+	assert.NoError(t, err)
 
 	events, err := repo.EventsSince(before, 1)
 
@@ -280,7 +336,8 @@ func TestMongoMementizerSnapshotSaved(t *testing.T) {
 	defer client.Disconnect(context.TODO())
 
 	publisher := NewEventPublisher()
-	repo := NewMongoRepository(database, &publisher)
+	repo, err := NewMongoRepository(database, &publisher)
+	assert.NoError(t, err)
 	object := StudentMemento{
 		EventStream: &Stream{},
 		ID:          uuid.New().String(),
@@ -289,7 +346,8 @@ func TestMongoMementizerSnapshotSaved(t *testing.T) {
 	for i := 0; i < 600; i++ {
 		object.SetGrade(fmt.Sprintf("a%d", i))
 	}
-	repo.Save(&object)
+	err = repo.Save(&object)
+	assert.NoError(t, err)
 
 	filter := bson.M{"objectid": object.ObjectID()}
 	result := database.Collection("domain_event_snapshots").FindOne(context.Background(), filter)
@@ -305,13 +363,15 @@ func TestMongoNotMementizerSnapshotNotSaved(t *testing.T) {
 	defer client.Disconnect(context.TODO())
 
 	publisher := NewEventPublisher()
-	repo := NewMongoRepository(database, &publisher)
+	repo, err := NewMongoRepository(database, &publisher)
+	assert.NoError(t, err)
 	object := Student{ID: uuid.New().String()}
 
 	for i := 0; i < 600; i++ {
 		object.SetGrade(fmt.Sprintf("a%d", i))
 	}
-	repo.Save(&object)
+	err = repo.Save(&object)
+	assert.NoError(t, err)
 
 	filter := bson.M{"objectid": object.ObjectID()}
 	result := database.Collection("domain_event_snapshots").FindOne(context.Background(), filter)
@@ -327,7 +387,8 @@ func TestMongoLoadMementizer(t *testing.T) {
 	defer client.Disconnect(context.TODO())
 
 	publisher := NewEventPublisher()
-	repo := NewMongoRepository(database, &publisher)
+	repo, err := NewMongoRepository(database, &publisher)
+	assert.NoError(t, err)
 	object := StudentMemento{
 		EventStream: &Stream{},
 		ID:          uuid.New().String(),
@@ -336,16 +397,18 @@ func TestMongoLoadMementizer(t *testing.T) {
 	for i := 0; i < 600; i++ {
 		object.SetGrade(fmt.Sprintf("a%d", i))
 	}
-	repo.Save(&object)
+	err = repo.Save(&object)
+	assert.NoError(t, err)
 	for i := 0; i < 10; i++ {
 		object.SetGrade(fmt.Sprintf("a%d", i))
 	}
-	repo.Save(&object)
+	err = repo.Save(&object)
+	assert.NoError(t, err)
 
 	loadedObject := StudentMemento{
 		EventStream: &Stream{},
 	}
-	err := repo.Load(object.ObjectID(), &loadedObject)
+	err = repo.Load(object.ObjectID(), &loadedObject)
 
 	if err != nil {
 		t.Error("Loading should not throw an error")

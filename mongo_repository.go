@@ -7,6 +7,9 @@ import (
 	"time"
 
 	"github.com/dgraph-io/ristretto"
+	"github.com/golang-migrate/migrate/v4"
+	mongomigrate "github.com/golang-migrate/migrate/v4/database/mongodb"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -34,29 +37,41 @@ type MongoRepository struct {
 	snapshotsCache      *ristretto.Cache
 }
 
-func NewMongoRepository(database *mongo.Database, publisher *EventPublisher) MongoRepository {
-	cache, _ := ristretto.NewCache(&ristretto.Config{
+func NewMongoRepository(database *mongo.Database, publisher *EventPublisher) (*MongoRepository, error) {
+	cache, err := ristretto.NewCache(&ristretto.Config{
 		NumCounters: 1e3,
 		MaxCost:     1 << 30,
 		BufferItems: 64,
 	})
-	return MongoRepository{
+	if err != nil {
+		return nil, err
+	}
+	err = MigrateMongoDB(database, "./migrations")
+	if err != nil {
+		return nil, err
+	}
+	return &MongoRepository{
 		collection:          database.Collection("event_store"),
 		snapshotsCollection: database.Collection("domain_event_snapshots"),
 		publisher:           publisher,
 		snapshotsCache:      cache,
-	}
+	}, nil
 }
 
 func (r *MongoRepository) Save(object DomainObject) error {
-	eventToAdd := object.CollectUnsavedEvents()
+	events := object.CollectUnsavedEvents()
 
-	records := toRecords(eventToAdd)
-	r.collection.InsertMany(context.TODO(), records)
+	records := toRecords(events)
+	_, err := r.collection.InsertMany(context.TODO(), records)
+	if err != nil && !errors.Is(err, mongo.ErrEmptySlice) {
+		if mongo.IsDuplicateKeyError(err) {
+			return ConcurrencyError
+		}
+		return err
+	}
 
-	r.publisher.Publish(eventToAdd)
-
-	err := r.saveSnapshot(object)
+	r.publisher.Publish(events)
+	err = r.saveSnapshot(object)
 
 	return err
 }
@@ -303,4 +318,36 @@ func fromRecords(records []record) []Event {
 	}
 
 	return events
+}
+func MigrateMongoDB(mongoDB *mongo.Database, dir string) error {
+	driver, err := mongomigrate.WithInstance(mongoDB.Client(), &mongomigrate.Config{
+		DatabaseName:         mongoDB.Name(),
+		MigrationsCollection: "goddd_migrations",
+		TransactionMode:      false,
+		Locking: mongomigrate.Locking{
+			CollectionName: "goddd_migration_locking",
+			Timeout:        5,
+			Enabled:        true,
+			Interval:       1,
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://"+dir,
+		"mongodb",
+		driver,
+	)
+	if err != nil {
+		return err
+	}
+
+	err = m.Up()
+	if err != nil && err != migrate.ErrNoChange {
+		return err
+	}
+
+	return nil
 }
