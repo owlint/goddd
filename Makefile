@@ -14,9 +14,13 @@ up:
 	docker-compose up -d
 
 bare_test:
-	go test $(TEST_ARGS)
+	go test -coverprofile coverage.out $(TEST_ARGS)
 
 down:
 	-docker-compose down
 
 test: | up bare_test down
+
+sonar: test
+	sonar-scanner
+	open http://localhost:9000/dashboard?id=goddd

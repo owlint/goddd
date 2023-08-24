@@ -1,1 +1,4 @@
 .env
+.envrc
+.scannerwork
+coverage.out
