@@ -12,11 +12,12 @@ import (
 
 var ConcurrencyError = errors.New("Concurrency error while saving")
 
-type Repository interface {
-	Save(object DomainObject) error
-	Load(objectID string, object DomainObject) error
+type Repository[T DomainObject] interface {
+	Save(object T) error
+	Load(objectID string, object T) error
 	Exists(objectID string) (bool, error)
 	EventsSince(time time.Time, limit int) ([]Event, error)
+	Update(objectID string, object T, nbRetries int, updater func(T) (T, error)) (T, error)
 }
 
 func unsavedEvents(objectEvents []Event, knownEventIDs []string) []Event {
@@ -58,4 +59,27 @@ func Decode(object interface{}, data []byte) error {
 		return err
 	}
 	return nil
+}
+
+func repoUpdate[T DomainObject](repo Repository[T], objectID string, object T, nbRetries int, updater func(T) (T, error)) (T, error) {
+	if nbRetries < 0 {
+		return object, errors.New("negative number of retries")
+	}
+
+	var err error
+	for i := 0; i <= nbRetries; i++ {
+		err = repo.Load(objectID, object)
+		if err != nil {
+			return object, err
+		}
+		object, err = updater(object)
+		if err != nil {
+			return object, err
+		}
+		err = repo.Save(object)
+		if err == nil || !errors.Is(err, ConcurrencyError) {
+			return object, err
+		}
+	}
+	return object, err
 }

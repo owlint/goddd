@@ -30,14 +30,14 @@ type record struct {
 	Payload   []byte
 }
 
-type MongoRepository struct {
+type MongoRepository[T DomainObject] struct {
 	collection          *mongo.Collection
 	snapshotsCollection *mongo.Collection
 	publisher           *EventPublisher
 	snapshotsCache      *ristretto.Cache
 }
 
-func NewMongoRepository(database *mongo.Database, publisher *EventPublisher) (*MongoRepository, error) {
+func NewMongoRepository[T DomainObject](database *mongo.Database, publisher *EventPublisher) (*MongoRepository[T], error) {
 	cache, err := ristretto.NewCache(&ristretto.Config{
 		NumCounters: 1e3,
 		MaxCost:     1 << 30,
@@ -50,7 +50,7 @@ func NewMongoRepository(database *mongo.Database, publisher *EventPublisher) (*M
 	if err != nil {
 		return nil, err
 	}
-	return &MongoRepository{
+	return &MongoRepository[T]{
 		collection:          database.Collection("event_store"),
 		snapshotsCollection: database.Collection("domain_event_snapshots"),
 		publisher:           publisher,
@@ -58,7 +58,7 @@ func NewMongoRepository(database *mongo.Database, publisher *EventPublisher) (*M
 	}, nil
 }
 
-func (r *MongoRepository) Save(object DomainObject) error {
+func (r *MongoRepository[T]) Save(object T) error {
 	events := object.CollectUnsavedEvents()
 
 	records := toRecords(events)
@@ -76,7 +76,11 @@ func (r *MongoRepository) Save(object DomainObject) error {
 	return err
 }
 
-func (r *MongoRepository) saveSnapshot(object DomainObject) error {
+func (r *MongoRepository[T]) Update(objectID string, object T, nbRetries int, updater func(T) (T, error)) (T, error) {
+	return repoUpdate[T](r, objectID, object, nbRetries, updater)
+}
+
+func (r *MongoRepository[T]) saveSnapshot(object T) error {
 	var objectInter interface{} = object
 	mementizer, isMemento := objectInter.(DomainObjectMemento)
 
@@ -99,7 +103,7 @@ func (r *MongoRepository) saveSnapshot(object DomainObject) error {
 	return nil
 }
 
-func (r *MongoRepository) persistSnapshot(object DomainObject, mementizer DomainObjectMemento) error {
+func (r *MongoRepository[T]) persistSnapshot(object T, mementizer DomainObjectMemento) error {
 	memento, err := mementizer.DumpMemento()
 	if err != nil {
 		return err
@@ -132,7 +136,7 @@ func (r *MongoRepository) persistSnapshot(object DomainObject, mementizer Domain
 	return err
 }
 
-func (r *MongoRepository) Load(objectID string, object DomainObject) error {
+func (r *MongoRepository[T]) Load(objectID string, object T) error {
 	exist, err := r.Exists(objectID)
 	if err != nil {
 		return err
@@ -173,7 +177,7 @@ func (r *MongoRepository) Load(objectID string, object DomainObject) error {
 	return nil
 }
 
-func (r *MongoRepository) reloadSnapshot(snapshot *snapshot, object DomainObject) error {
+func (r *MongoRepository[T]) reloadSnapshot(snapshot *snapshot, object T) error {
 	var objectInter interface{} = object
 	mementizer, isMemento := objectInter.(DomainObjectMemento)
 
@@ -184,7 +188,7 @@ func (r *MongoRepository) reloadSnapshot(snapshot *snapshot, object DomainObject
 	return nil
 }
 
-func (r *MongoRepository) Exists(objectId string) (bool, error) {
+func (r *MongoRepository[T]) Exists(objectId string) (bool, error) {
 	filter := bson.D{{"objectid", objectId}}
 	result := r.collection.FindOne(context.TODO(), filter)
 	if result != nil && result.Err() == mongo.ErrNoDocuments {
@@ -195,7 +199,7 @@ func (r *MongoRepository) Exists(objectId string) (bool, error) {
 	return true, nil
 }
 
-func (r *MongoRepository) EventsSince(timestamp time.Time, limit int) ([]Event, error) {
+func (r *MongoRepository[T]) EventsSince(timestamp time.Time, limit int) ([]Event, error) {
 	records := make([]record, 0)
 
 	findOptions := options.Find()
@@ -218,7 +222,7 @@ func (r *MongoRepository) EventsSince(timestamp time.Time, limit int) ([]Event, 
 	return fromRecords(records), nil
 }
 
-func (r *MongoRepository) ObjectEventsSinceVersion(objectID string, version int) ([]Event, error) {
+func (r *MongoRepository[T]) ObjectEventsSinceVersion(objectID string, version int) ([]Event, error) {
 	records := make([]record, 0)
 
 	findOptions := options.Find()
@@ -243,7 +247,7 @@ func (r *MongoRepository) ObjectEventsSinceVersion(objectID string, version int)
 	return fromRecords(records), nil
 }
 
-func (r *MongoRepository) objectRepositoryEvents(objectID string) ([]Event, error) {
+func (r *MongoRepository[T]) objectRepositoryEvents(objectID string) ([]Event, error) {
 	records := make([]record, 0)
 
 	filter := bson.D{{"objectid", objectID}}
@@ -263,7 +267,7 @@ func (r *MongoRepository) objectRepositoryEvents(objectID string) ([]Event, erro
 	return fromRecords(records), nil
 }
 
-func (r *MongoRepository) lastSnapshot(objectID string) (*snapshot, error) {
+func (r *MongoRepository[T]) lastSnapshot(objectID string) (*snapshot, error) {
 	if r.snapshotsCache != nil {
 		snap, ok := r.snapshotsCache.Get(objectID)
 		if ok {

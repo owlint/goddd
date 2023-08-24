@@ -5,19 +5,19 @@ import (
 	"time"
 )
 
-type InMemoryRepository struct {
+type InMemoryRepository[T DomainObject] struct {
 	eventStream []Event
 	publisher   *EventPublisher
 }
 
-func NewInMemoryRepository(publisher *EventPublisher) InMemoryRepository {
-	return InMemoryRepository{
+func NewInMemoryRepository[T DomainObject](publisher *EventPublisher) InMemoryRepository[T] {
+	return InMemoryRepository[T]{
 		eventStream: make([]Event, 0),
 		publisher:   publisher,
 	}
 }
 
-func (r *InMemoryRepository) Save(object DomainObject) error {
+func (r *InMemoryRepository[T]) Save(object T) error {
 	eventToAdd := object.CollectUnsavedEvents()
 
 	r.eventStream = append(r.eventStream, eventToAdd...)
@@ -27,7 +27,7 @@ func (r *InMemoryRepository) Save(object DomainObject) error {
 	return nil
 }
 
-func (r *InMemoryRepository) Load(objectID string, object DomainObject) error {
+func (r *InMemoryRepository[T]) Load(objectID string, object T) error {
 	if exist, err := r.Exists(objectID); err != nil || !exist {
 		return errors.New("Cannot load unknown object")
 	}
@@ -42,7 +42,7 @@ func (r *InMemoryRepository) Load(objectID string, object DomainObject) error {
 	return nil
 }
 
-func (r *InMemoryRepository) Exists(objectId string) (bool, error) {
+func (r *InMemoryRepository[T]) Exists(objectId string) (bool, error) {
 	for _, event := range r.eventStream {
 		if event.ObjectId() == objectId {
 			return true, nil
@@ -50,7 +50,7 @@ func (r *InMemoryRepository) Exists(objectId string) (bool, error) {
 	}
 	return false, nil
 }
-func (r *InMemoryRepository) objectRepositoryEvents(objectId string) []Event {
+func (r *InMemoryRepository[T]) objectRepositoryEvents(objectId string) []Event {
 	events := make([]Event, 0)
 
 	for _, event := range r.eventStream {
@@ -62,7 +62,7 @@ func (r *InMemoryRepository) objectRepositoryEvents(objectId string) []Event {
 	return events
 }
 
-func (r *InMemoryRepository) EventsSince(timestamp time.Time, limit int) ([]Event, error) {
+func (r *InMemoryRepository[T]) EventsSince(timestamp time.Time, limit int) ([]Event, error) {
 	events := make([]Event, 0)
 
 	for _, event := range r.eventStream {
@@ -72,4 +72,8 @@ func (r *InMemoryRepository) EventsSince(timestamp time.Time, limit int) ([]Even
 	}
 
 	return events, nil
+}
+
+func (r *InMemoryRepository[T]) Update(objectID string, object T, nbRetries int, updater func(T) (T, error)) (T, error) {
+	return repoUpdate[T](r, objectID, object, nbRetries, updater)
 }

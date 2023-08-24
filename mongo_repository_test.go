@@ -62,7 +62,7 @@ func TestMongoSave(t *testing.T) {
 		defer client.Disconnect(context.TODO())
 
 		publisher := NewEventPublisher()
-		repo, err := NewMongoRepository(database, &publisher)
+		repo, err := NewMongoRepository[*Student](database, &publisher)
 		assert.NoError(t, err)
 		object := Student{ID: uuid.NewString()}
 
@@ -77,7 +77,7 @@ func TestMongoSave(t *testing.T) {
 		defer client.Disconnect(context.TODO())
 
 		publisher := NewEventPublisher()
-		repo, err := NewMongoRepository(database, &publisher)
+		repo, err := NewMongoRepository[*Student](database, &publisher)
 		assert.NoError(t, err)
 		object := Student{ID: uuid.NewString()}
 
@@ -100,7 +100,7 @@ func TestMongoSave(t *testing.T) {
 		defer client.Disconnect(context.TODO())
 
 		publisher := NewEventPublisher()
-		repo, err := NewMongoRepository(database, &publisher)
+		repo, err := NewMongoRepository[*Student](database, &publisher)
 		assert.NoError(t, err)
 		object := Student{ID: uuid.NewString()}
 
@@ -130,7 +130,7 @@ func TestMongoPublished(t *testing.T) {
 	publisher := NewEventPublisher()
 	publisher.Register(&receiver)
 	publisher.Wait = true
-	repo, err := NewMongoRepository(database, &publisher)
+	repo, err := NewMongoRepository[*Student](database, &publisher)
 	assert.NoError(t, err)
 	object := Student{}
 
@@ -153,7 +153,7 @@ func TestMongoPublishedNoWait(t *testing.T) {
 	}
 	publisher := NewEventPublisher()
 	publisher.Register(&receiver)
-	repo, err := NewMongoRepository(database, &publisher)
+	repo, err := NewMongoRepository[*Student](database, &publisher)
 	assert.NoError(t, err)
 	object := Student{
 		ID: uuid.New().String(),
@@ -175,7 +175,7 @@ func TestMongoSaveMultiples(t *testing.T) {
 	defer client.Disconnect(context.TODO())
 
 	publisher := NewEventPublisher()
-	repo, err := NewMongoRepository(database, &publisher)
+	repo, err := NewMongoRepository[*Student](database, &publisher)
 	assert.NoError(t, err)
 	object := Student{ID: uuid.New().String()}
 
@@ -195,7 +195,7 @@ func TestMongoSaveMultiplesObject(t *testing.T) {
 	defer client.Disconnect(context.TODO())
 
 	publisher := NewEventPublisher()
-	repo, err := NewMongoRepository(database, &publisher)
+	repo, err := NewMongoRepository[*Student](database, &publisher)
 	assert.NoError(t, err)
 
 	object := Student{ID: uuid.New().String()}
@@ -221,7 +221,7 @@ func TestMongoLoad(t *testing.T) {
 	defer client.Disconnect(context.TODO())
 
 	publisher := NewEventPublisher()
-	repo, err := NewMongoRepository(database, &publisher)
+	repo, err := NewMongoRepository[*Student](database, &publisher)
 	assert.NoError(t, err)
 	object := Student{ID: uuid.New().String()}
 	object2 := Student{ID: uuid.New().String()}
@@ -254,7 +254,7 @@ func TestMongoEventsSince(t *testing.T) {
 	defer client.Disconnect(context.TODO())
 
 	publisher := NewEventPublisher()
-	repo, err := NewMongoRepository(database, &publisher)
+	repo, err := NewMongoRepository[*Student](database, &publisher)
 	assert.NoError(t, err)
 	object := Student{ID: uuid.New().String()}
 	object2 := Student{ID: uuid.New().String()}
@@ -295,7 +295,7 @@ func TestMongoEventsSinceLimit(t *testing.T) {
 	defer client.Disconnect(context.TODO())
 
 	publisher := NewEventPublisher()
-	repo, err := NewMongoRepository(database, &publisher)
+	repo, err := NewMongoRepository[*Student](database, &publisher)
 	assert.NoError(t, err)
 	object := Student{ID: uuid.New().String()}
 	object2 := Student{ID: uuid.New().String()}
@@ -336,7 +336,8 @@ func TestMongoMementizerSnapshotSaved(t *testing.T) {
 	defer client.Disconnect(context.TODO())
 
 	publisher := NewEventPublisher()
-	repo, err := NewMongoRepository(database, &publisher)
+	repo, err := NewMongoRepository[*StudentMemento](database, &publisher)
+
 	assert.NoError(t, err)
 	object := StudentMemento{
 		EventStream: &Stream{},
@@ -363,7 +364,7 @@ func TestMongoNotMementizerSnapshotNotSaved(t *testing.T) {
 	defer client.Disconnect(context.TODO())
 
 	publisher := NewEventPublisher()
-	repo, err := NewMongoRepository(database, &publisher)
+	repo, err := NewMongoRepository[*Student](database, &publisher)
 	assert.NoError(t, err)
 	object := Student{ID: uuid.New().String()}
 
@@ -387,7 +388,7 @@ func TestMongoLoadMementizer(t *testing.T) {
 	defer client.Disconnect(context.TODO())
 
 	publisher := NewEventPublisher()
-	repo, err := NewMongoRepository(database, &publisher)
+	repo, err := NewMongoRepository[*StudentMemento](database, &publisher)
 	assert.NoError(t, err)
 	object := StudentMemento{
 		EventStream: &Stream{},
@@ -429,4 +430,125 @@ func TestMongoLoadMementizer(t *testing.T) {
 		t.Errorf("Different LastVersion, %d, %d", object.LastVersion(), loadedObject.LastVersion())
 		t.FailNow()
 	}
+}
+
+func TestMongoUpdate(t *testing.T) {
+	t.Run("Update", func(t *testing.T) {
+		client, database := connectTestMongo(t)
+		defer client.Disconnect(context.TODO())
+
+		publisher := NewEventPublisher()
+		repo, err := NewMongoRepository[*Student](database, &publisher)
+		assert.NoError(t, err)
+		object := Student{ID: uuid.New().String()}
+		object.SetGrade("a")
+		err = repo.Save(&object)
+		assert.NoError(t, err)
+
+		savedObject, err := repo.Update(object.ObjectID(), &object, 1, func(object *Student) (*Student, error) {
+			object.SetGrade("b")
+			return object, nil
+		})
+
+		assert.NoError(t, err)
+		assert.Equal(t, "b", savedObject.grade)
+
+		loadedObject := &Student{}
+		err = repo.Load(object.ObjectID(), loadedObject)
+		assert.NoError(t, err)
+		assert.Equal(t, "b", loadedObject.grade)
+	})
+
+	t.Run("Retry on ConcurrencyError", func(t *testing.T) {
+		client, database := connectTestMongo(t)
+		defer client.Disconnect(context.TODO())
+
+		publisher := NewEventPublisher()
+		repo, err := NewMongoRepository[*Student](database, &publisher)
+		assert.NoError(t, err)
+		object := Student{ID: uuid.New().String()}
+		object.SetGrade("a")
+		err = repo.Save(&object)
+		assert.NoError(t, err)
+
+		// Here we introduce a concurrency error
+		object2 := object
+		object2.SetGrade("c")
+		err = repo.Save(&object2)
+		assert.NoError(t, err)
+
+		// Now we update and should not get an error
+		savedObject, err := repo.Update(object.ObjectID(), &object, 1, func(object *Student) (*Student, error) {
+			object.SetGrade("b")
+			return object, nil
+		})
+
+		assert.NoError(t, err)
+		assert.Equal(t, "b", savedObject.grade)
+
+		loadedObject := &Student{}
+		err = repo.Load(object.ObjectID(), loadedObject)
+		assert.NoError(t, err)
+		assert.Equal(t, "b", loadedObject.grade)
+	})
+
+	t.Run("Invalid retries", func(t *testing.T) {
+		client, database := connectTestMongo(t)
+		defer client.Disconnect(context.TODO())
+
+		publisher := NewEventPublisher()
+		repo, err := NewMongoRepository[*Student](database, &publisher)
+		assert.NoError(t, err)
+		object := Student{ID: uuid.New().String()}
+		object.SetGrade("a")
+		err = repo.Save(&object)
+		assert.NoError(t, err)
+
+		_, err = repo.Update(object.ObjectID(), &object, -1, func(object *Student) (*Student, error) {
+			object.SetGrade("b")
+			return object, nil
+		})
+
+		assert.Error(t, err)
+	})
+
+	t.Run("Update error", func(t *testing.T) {
+		client, database := connectTestMongo(t)
+		defer client.Disconnect(context.TODO())
+
+		publisher := NewEventPublisher()
+		repo, err := NewMongoRepository[*Student](database, &publisher)
+		assert.NoError(t, err)
+		object := Student{ID: uuid.New().String()}
+		object.SetGrade("a")
+		err = repo.Save(&object)
+		assert.NoError(t, err)
+
+		myError := errors.New("my error")
+		_, err = repo.Update(object.ObjectID(), &object, 0, func(object *Student) (*Student, error) {
+			return object, myError
+		})
+
+		assert.Error(t, err)
+		assert.True(t, errors.Is(err, myError))
+	})
+
+	t.Run("Invalid ID", func(t *testing.T) {
+		client, database := connectTestMongo(t)
+		defer client.Disconnect(context.TODO())
+
+		publisher := NewEventPublisher()
+		repo, err := NewMongoRepository[*Student](database, &publisher)
+		assert.NoError(t, err)
+		object := Student{ID: uuid.New().String()}
+		object.SetGrade("a")
+		err = repo.Save(&object)
+		assert.NoError(t, err)
+
+		_, err = repo.Update(uuid.NewString(), &object, -1, func(object *Student) (*Student, error) {
+			return object, nil
+		})
+
+		assert.Error(t, err)
+	})
 }

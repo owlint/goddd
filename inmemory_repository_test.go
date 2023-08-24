@@ -7,7 +7,7 @@ import (
 
 func TestSave(t *testing.T) {
 	publisher := NewEventPublisher()
-	repo := NewInMemoryRepository(&publisher)
+	repo := NewInMemoryRepository[*Student](&publisher)
 	object := Student{}
 
 	object.SetGrade("a")
@@ -21,7 +21,7 @@ func TestSave(t *testing.T) {
 
 func TestSaveMultiples(t *testing.T) {
 	publisher := NewEventPublisher()
-	repo := NewInMemoryRepository(&publisher)
+	repo := NewInMemoryRepository[*Student](&publisher)
 	object := Student{}
 
 	object.SetGrade("a")
@@ -36,7 +36,7 @@ func TestSaveMultiples(t *testing.T) {
 
 func TestSaveMultiplesObject(t *testing.T) {
 	publisher := NewEventPublisher()
-	repo := NewInMemoryRepository(&publisher)
+	repo := NewInMemoryRepository[*Student](&publisher)
 	object := Student{}
 	object2 := Student{}
 
@@ -55,7 +55,7 @@ func TestSaveMultiplesObject(t *testing.T) {
 
 func TestLoad(t *testing.T) {
 	publisher := NewEventPublisher()
-	repo := NewInMemoryRepository(&publisher)
+	repo := NewInMemoryRepository[*Student](&publisher)
 	object := Student{}
 	object2 := Student{}
 
@@ -82,7 +82,7 @@ func TestLoad(t *testing.T) {
 
 func TestInMemoryEventsSince(t *testing.T) {
 	publisher := NewEventPublisher()
-	repo := NewInMemoryRepository(&publisher)
+	repo := NewInMemoryRepository[*Student](&publisher)
 	object := Student{}
 	object2 := Student{}
 
@@ -116,7 +116,7 @@ func TestInMemoryEventsSince(t *testing.T) {
 func TestInMemoryEventsSinceLimit(t *testing.T) {
 
 	publisher := NewEventPublisher()
-	repo := NewInMemoryRepository(&publisher)
+	repo := NewInMemoryRepository[*Student](&publisher)
 	object := Student{}
 	object2 := Student{}
 
