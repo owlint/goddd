@@ -62,7 +62,7 @@ func (r *MongoRepository[T]) Save(object T) error {
 	events := object.CollectUnsavedEvents()
 
 	records := toRecords(events)
-	_, err := r.collection.InsertMany(context.TODO(), records)
+	_, err := r.collection.InsertMany(context.Background(), records)
 	if err != nil && !errors.Is(err, mongo.ErrEmptySlice) {
 		if mongo.IsDuplicateKeyError(err) {
 			return ConcurrencyError
@@ -190,7 +190,7 @@ func (r *MongoRepository[T]) reloadSnapshot(snapshot *snapshot, object T) error 
 
 func (r *MongoRepository[T]) Exists(objectId string) (bool, error) {
 	filter := bson.D{{"objectid", objectId}}
-	result := r.collection.FindOne(context.TODO(), filter)
+	result := r.collection.FindOne(context.Background(), filter)
 	if result != nil && result.Err() == mongo.ErrNoDocuments {
 		return false, nil
 	} else if result.Err() != nil {
@@ -208,13 +208,13 @@ func (r *MongoRepository[T]) EventsSince(timestamp time.Time, limit int) ([]Even
 	filter := bson.M{"timestamp": bson.M{
 		"$gte": timestamp.UnixNano(),
 	}}
-	listCursor, err := r.collection.Find(context.TODO(), filter, findOptions)
+	listCursor, err := r.collection.Find(context.Background(), filter, findOptions)
 	if err != nil {
 		return nil, err
 	}
-	defer listCursor.Close(context.TODO())
+	defer listCursor.Close(context.Background())
 
-	err = listCursor.All(context.TODO(), &records)
+	err = listCursor.All(context.Background(), &records)
 	if err != nil {
 		return fromRecords(records), err
 	}
@@ -233,13 +233,13 @@ func (r *MongoRepository[T]) ObjectEventsSinceVersion(objectID string, version i
 		},
 		"objectid": objectID,
 	}
-	listCursor, err := r.collection.Find(context.TODO(), filter, findOptions)
+	listCursor, err := r.collection.Find(context.Background(), filter, findOptions)
 	if err != nil {
 		return nil, err
 	}
-	defer listCursor.Close(context.TODO())
+	defer listCursor.Close(context.Background())
 
-	err = listCursor.All(context.TODO(), &records)
+	err = listCursor.All(context.Background(), &records)
 	if err != nil {
 		return fromRecords(records), err
 	}
@@ -253,13 +253,13 @@ func (r *MongoRepository[T]) objectRepositoryEvents(objectID string) ([]Event, e
 	filter := bson.D{{"objectid", objectID}}
 	opts := options.Find().SetSort(bson.M{"version": 1})
 
-	cursor, err := r.collection.Find(context.TODO(), filter, opts)
+	cursor, err := r.collection.Find(context.Background(), filter, opts)
 	if err != nil {
 		return fromRecords(records), err
 	}
-	defer cursor.Close(context.TODO())
+	defer cursor.Close(context.Background())
 
-	err = cursor.All(context.TODO(), &records)
+	err = cursor.All(context.Background(), &records)
 	if err != nil {
 		return fromRecords(records), err
 	}
@@ -277,7 +277,7 @@ func (r *MongoRepository[T]) lastSnapshot(objectID string) (*snapshot, error) {
 	}
 
 	filter := bson.D{{"objectid", objectID}}
-	result := r.snapshotsCollection.FindOne(context.TODO(), filter)
+	result := r.snapshotsCollection.FindOne(context.Background(), filter)
 	if result != nil && result.Err() == mongo.ErrNoDocuments {
 		return nil, nil
 	} else if result.Err() != nil {

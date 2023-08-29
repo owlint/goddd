@@ -77,9 +77,10 @@ func repoUpdate[T DomainObject](repo Repository[T], objectID string, object T, n
 			return object, err
 		}
 		err = repo.Save(object)
-		if err == nil || !errors.Is(err, ConcurrencyError) {
-			return object, err
+		if errors.Is(err, ConcurrencyError) {
+			continue
 		}
+		return object, err
 	}
 	return object, err
 }
