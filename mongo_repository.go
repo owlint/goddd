@@ -71,9 +71,7 @@ func (r *MongoRepository[T]) Save(object T) error {
 	}
 
 	r.publisher.Publish(events)
-	err = r.saveSnapshot(object)
-
-	return err
+	return r.saveSnapshot(object)
 }
 
 func (r *MongoRepository[T]) Update(objectID string, object T, nbRetries int, updater func(T) (T, error)) (T, error) {
@@ -323,6 +321,7 @@ func fromRecords(records []record) []Event {
 
 	return events
 }
+
 func MigrateMongoDB(mongoDB *mongo.Database, dir string) error {
 	driver, err := mongomigrate.WithInstance(mongoDB.Client(), &mongomigrate.Config{
 		DatabaseName:         mongoDB.Name(),

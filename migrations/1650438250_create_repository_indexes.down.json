@@ -9,6 +9,10 @@
   },
   {
     "dropIndexes": "event_store",
+    "index": "timestamp_index"
+  },
+  {
+    "dropIndexes": "event_store",
     "index": "eventid_unique"
   }
 ]

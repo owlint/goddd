@@ -108,15 +108,13 @@ func TestMongoSave(t *testing.T) {
 		err = repo.Save(&object)
 		assert.NoError(t, err)
 
-		object2 := object
-		object2.SetGrade("b")
-		err = repo.Save(&object2)
-		assert.NoError(t, err)
-
-		object.SetGrade("c")
+		objectCopy := object
+		object.SetGrade("b")
 		err = repo.Save(&object)
-		assert.Error(t, err)
-		assert.True(t, errors.Is(err, ConcurrencyError))
+		assert.NoError(t, err)
+		objectCopy.SetGrade("c")
+		err = repo.Save(&objectCopy)
+		assert.ErrorIs(t, err, ConcurrencyError)
 	})
 }
 
