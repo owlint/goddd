@@ -1,6 +1,7 @@
 package goddd
 
 import (
+	"context"
 	"errors"
 	"time"
 )
@@ -17,7 +18,7 @@ func NewInMemoryRepository[T DomainObject](publisher *EventPublisher) InMemoryRe
 	}
 }
 
-func (r *InMemoryRepository[T]) Save(object T) error {
+func (r *InMemoryRepository[T]) Save(ctx context.Context, object T) error {
 	eventToAdd := object.CollectUnsavedEvents()
 
 	r.eventStream = append(r.eventStream, eventToAdd...)
@@ -27,8 +28,8 @@ func (r *InMemoryRepository[T]) Save(object T) error {
 	return nil
 }
 
-func (r *InMemoryRepository[T]) Load(objectID string, object T) error {
-	if exist, err := r.Exists(objectID); err != nil || !exist {
+func (r *InMemoryRepository[T]) Load(ctx context.Context, objectID string, object T) error {
+	if exist, err := r.Exists(ctx, objectID); err != nil || !exist {
 		return errors.New("Cannot load unknown object")
 	}
 
@@ -42,7 +43,7 @@ func (r *InMemoryRepository[T]) Load(objectID string, object T) error {
 	return nil
 }
 
-func (r *InMemoryRepository[T]) Exists(objectId string) (bool, error) {
+func (r *InMemoryRepository[T]) Exists(ctx context.Context, objectId string) (bool, error) {
 	for _, event := range r.eventStream {
 		if event.ObjectId() == objectId {
 			return true, nil
@@ -62,7 +63,7 @@ func (r *InMemoryRepository[T]) objectRepositoryEvents(objectId string) []Event 
 	return events
 }
 
-func (r *InMemoryRepository[T]) EventsSince(timestamp time.Time, limit int) ([]Event, error) {
+func (r *InMemoryRepository[T]) EventsSince(ctx context.Context, timestamp time.Time, limit int) ([]Event, error) {
 	events := make([]Event, 0)
 
 	for _, event := range r.eventStream {
@@ -74,6 +75,6 @@ func (r *InMemoryRepository[T]) EventsSince(timestamp time.Time, limit int) ([]E
 	return events, nil
 }
 
-func (r *InMemoryRepository[T]) Update(objectID string, object T, nbRetries int, updater func(T) (T, error)) (T, error) {
-	return repoUpdate[T](r, objectID, object, nbRetries, updater)
+func (r *InMemoryRepository[T]) Update(ctx context.Context, objectID string, object T, nbRetries int, updater func(T) (T, error)) (T, error) {
+	return repoUpdate[T](ctx, r, objectID, object, nbRetries, updater)
 }

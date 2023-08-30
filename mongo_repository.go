@@ -58,11 +58,11 @@ func NewMongoRepository[T DomainObject](database *mongo.Database, publisher *Eve
 	}, nil
 }
 
-func (r *MongoRepository[T]) Save(object T) error {
+func (r *MongoRepository[T]) Save(ctx context.Context, object T) error {
 	events := object.CollectUnsavedEvents()
 
 	records := toRecords(events)
-	_, err := r.collection.InsertMany(context.Background(), records)
+	_, err := r.collection.InsertMany(ctx, records)
 	if err != nil && !errors.Is(err, mongo.ErrEmptySlice) {
 		if mongo.IsDuplicateKeyError(err) {
 			return ConcurrencyError
@@ -71,19 +71,19 @@ func (r *MongoRepository[T]) Save(object T) error {
 	}
 
 	r.publisher.Publish(events)
-	return r.saveSnapshot(object)
+	return r.saveSnapshot(ctx, object)
 }
 
-func (r *MongoRepository[T]) Update(objectID string, object T, nbRetries int, updater func(T) (T, error)) (T, error) {
-	return repoUpdate[T](r, objectID, object, nbRetries, updater)
+func (r *MongoRepository[T]) Update(ctx context.Context, objectID string, object T, nbRetries int, updater func(T) (T, error)) (T, error) {
+	return repoUpdate[T](ctx, r, objectID, object, nbRetries, updater)
 }
 
-func (r *MongoRepository[T]) saveSnapshot(object T) error {
+func (r *MongoRepository[T]) saveSnapshot(ctx context.Context, object T) error {
 	var objectInter interface{} = object
 	mementizer, isMemento := objectInter.(DomainObjectMemento)
 
 	if isMemento {
-		lastSnapshot, err := r.lastSnapshot(object.ObjectID())
+		lastSnapshot, err := r.lastSnapshot(ctx, object.ObjectID())
 		if err != nil {
 			return fmt.Errorf("Could not save snapshot : %s", err.Error())
 		}
@@ -92,7 +92,7 @@ func (r *MongoRepository[T]) saveSnapshot(object T) error {
 			lastVersion = lastSnapshot.Version
 		}
 		if object.LastVersion()-lastVersion > 500 {
-			err := r.persistSnapshot(object, mementizer)
+			err := r.persistSnapshot(ctx, object, mementizer)
 			if err != nil {
 				return err
 			}
@@ -101,7 +101,7 @@ func (r *MongoRepository[T]) saveSnapshot(object T) error {
 	return nil
 }
 
-func (r *MongoRepository[T]) persistSnapshot(object T, mementizer DomainObjectMemento) error {
+func (r *MongoRepository[T]) persistSnapshot(ctx context.Context, object T, mementizer DomainObjectMemento) error {
 	memento, err := mementizer.DumpMemento()
 	if err != nil {
 		return err
@@ -134,8 +134,8 @@ func (r *MongoRepository[T]) persistSnapshot(object T, mementizer DomainObjectMe
 	return err
 }
 
-func (r *MongoRepository[T]) Load(objectID string, object T) error {
-	exist, err := r.Exists(objectID)
+func (r *MongoRepository[T]) Load(ctx context.Context, objectID string, object T) error {
+	exist, err := r.Exists(ctx, objectID)
 	if err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ func (r *MongoRepository[T]) Load(objectID string, object T) error {
 
 	object.Clear()
 
-	snapshot, err := r.lastSnapshot(objectID)
+	snapshot, err := r.lastSnapshot(ctx, objectID)
 	if err != nil {
 		return err
 	}
@@ -156,9 +156,9 @@ func (r *MongoRepository[T]) Load(objectID string, object T) error {
 		if err != nil {
 			return err
 		}
-		objectEvents, err = r.ObjectEventsSinceVersion(objectID, snapshot.Version)
+		objectEvents, err = r.ObjectEventsSinceVersion(ctx, objectID, snapshot.Version)
 	} else {
-		objectEvents, err = r.objectRepositoryEvents(objectID)
+		objectEvents, err = r.objectRepositoryEvents(ctx, objectID)
 	}
 
 	if err != nil {
@@ -186,9 +186,9 @@ func (r *MongoRepository[T]) reloadSnapshot(snapshot *snapshot, object T) error 
 	return nil
 }
 
-func (r *MongoRepository[T]) Exists(objectId string) (bool, error) {
+func (r *MongoRepository[T]) Exists(ctx context.Context, objectId string) (bool, error) {
 	filter := bson.D{{"objectid", objectId}}
-	result := r.collection.FindOne(context.Background(), filter)
+	result := r.collection.FindOne(ctx, filter)
 	if result != nil && result.Err() == mongo.ErrNoDocuments {
 		return false, nil
 	} else if result.Err() != nil {
@@ -197,7 +197,7 @@ func (r *MongoRepository[T]) Exists(objectId string) (bool, error) {
 	return true, nil
 }
 
-func (r *MongoRepository[T]) EventsSince(timestamp time.Time, limit int) ([]Event, error) {
+func (r *MongoRepository[T]) EventsSince(ctx context.Context, timestamp time.Time, limit int) ([]Event, error) {
 	records := make([]record, 0)
 
 	findOptions := options.Find()
@@ -206,7 +206,7 @@ func (r *MongoRepository[T]) EventsSince(timestamp time.Time, limit int) ([]Even
 	filter := bson.M{"timestamp": bson.M{
 		"$gte": timestamp.UnixNano(),
 	}}
-	listCursor, err := r.collection.Find(context.Background(), filter, findOptions)
+	listCursor, err := r.collection.Find(ctx, filter, findOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +220,7 @@ func (r *MongoRepository[T]) EventsSince(timestamp time.Time, limit int) ([]Even
 	return fromRecords(records), nil
 }
 
-func (r *MongoRepository[T]) ObjectEventsSinceVersion(objectID string, version int) ([]Event, error) {
+func (r *MongoRepository[T]) ObjectEventsSinceVersion(ctx context.Context, objectID string, version int) ([]Event, error) {
 	records := make([]record, 0)
 
 	findOptions := options.Find()
@@ -231,13 +231,13 @@ func (r *MongoRepository[T]) ObjectEventsSinceVersion(objectID string, version i
 		},
 		"objectid": objectID,
 	}
-	listCursor, err := r.collection.Find(context.Background(), filter, findOptions)
+	listCursor, err := r.collection.Find(ctx, filter, findOptions)
 	if err != nil {
 		return nil, err
 	}
-	defer listCursor.Close(context.Background())
+	defer listCursor.Close(ctx)
 
-	err = listCursor.All(context.Background(), &records)
+	err = listCursor.All(ctx, &records)
 	if err != nil {
 		return fromRecords(records), err
 	}
@@ -245,19 +245,19 @@ func (r *MongoRepository[T]) ObjectEventsSinceVersion(objectID string, version i
 	return fromRecords(records), nil
 }
 
-func (r *MongoRepository[T]) objectRepositoryEvents(objectID string) ([]Event, error) {
+func (r *MongoRepository[T]) objectRepositoryEvents(ctx context.Context, objectID string) ([]Event, error) {
 	records := make([]record, 0)
 
 	filter := bson.D{{"objectid", objectID}}
 	opts := options.Find().SetSort(bson.M{"version": 1})
 
-	cursor, err := r.collection.Find(context.Background(), filter, opts)
+	cursor, err := r.collection.Find(ctx, filter, opts)
 	if err != nil {
 		return fromRecords(records), err
 	}
-	defer cursor.Close(context.Background())
+	defer cursor.Close(ctx)
 
-	err = cursor.All(context.Background(), &records)
+	err = cursor.All(ctx, &records)
 	if err != nil {
 		return fromRecords(records), err
 	}
@@ -265,7 +265,7 @@ func (r *MongoRepository[T]) objectRepositoryEvents(objectID string) ([]Event, e
 	return fromRecords(records), nil
 }
 
-func (r *MongoRepository[T]) lastSnapshot(objectID string) (*snapshot, error) {
+func (r *MongoRepository[T]) lastSnapshot(ctx context.Context, objectID string) (*snapshot, error) {
 	if r.snapshotsCache != nil {
 		snap, ok := r.snapshotsCache.Get(objectID)
 		if ok {
@@ -275,7 +275,7 @@ func (r *MongoRepository[T]) lastSnapshot(objectID string) (*snapshot, error) {
 	}
 
 	filter := bson.D{{"objectid", objectID}}
-	result := r.snapshotsCollection.FindOne(context.Background(), filter)
+	result := r.snapshotsCollection.FindOne(ctx, filter)
 	if result != nil && result.Err() == mongo.ErrNoDocuments {
 		return nil, nil
 	} else if result.Err() != nil {

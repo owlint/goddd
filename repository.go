@@ -2,6 +2,7 @@ package goddd
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -10,14 +11,14 @@ import (
 	"github.com/google/uuid"
 )
 
-var ConcurrencyError = errors.New("Concurrency error while saving")
+var ConcurrencyError = errors.New("concurrency error while saving")
 
 type Repository[T DomainObject] interface {
-	Save(object T) error
-	Load(objectID string, object T) error
-	Exists(objectID string) (bool, error)
-	EventsSince(time time.Time, limit int) ([]Event, error)
-	Update(objectID string, object T, nbRetries int, updater func(T) (T, error)) (T, error)
+	Save(ctx context.Context, object T) error
+	Load(ctx context.Context, objectID string, object T) error
+	Exists(ctx context.Context, objectID string) (bool, error)
+	EventsSince(ctx context.Context, time time.Time, limit int) ([]Event, error)
+	Update(ctx context.Context, objectID string, object T, nbRetries int, updater func(T) (T, error)) (T, error)
 }
 
 func unsavedEvents(objectEvents []Event, knownEventIDs []string) []Event {
@@ -61,14 +62,14 @@ func Decode(object interface{}, data []byte) error {
 	return nil
 }
 
-func repoUpdate[T DomainObject](repo Repository[T], objectID string, object T, nbRetries int, updater func(T) (T, error)) (T, error) {
+func repoUpdate[T DomainObject](ctx context.Context, repo Repository[T], objectID string, object T, nbRetries int, updater func(T) (T, error)) (T, error) {
 	if nbRetries < 0 {
 		return object, errors.New("negative number of retries")
 	}
 
 	var err error
 	for i := 0; i <= nbRetries; i++ {
-		err = repo.Load(objectID, object)
+		err = repo.Load(ctx, objectID, object)
 		if err != nil {
 			return object, err
 		}
@@ -76,7 +77,7 @@ func repoUpdate[T DomainObject](repo Repository[T], objectID string, object T, n
 		if err != nil {
 			return object, err
 		}
-		err = repo.Save(object)
+		err = repo.Save(ctx, object)
 		if errors.Is(err, ConcurrencyError) {
 			continue
 		}

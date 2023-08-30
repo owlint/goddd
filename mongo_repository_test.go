@@ -67,7 +67,7 @@ func TestMongoSave(t *testing.T) {
 		object := Student{ID: uuid.NewString()}
 
 		object.SetGrade("a")
-		err = repo.Save(&object)
+		err = repo.Save(context.Background(), &object)
 		assert.NoError(t, err)
 
 		assert.Len(t, eventStreamFor(t, database, object.ObjectID()), 1)
@@ -82,15 +82,15 @@ func TestMongoSave(t *testing.T) {
 		object := Student{ID: uuid.NewString()}
 
 		object.SetGrade("a")
-		err = repo.Save(&object)
+		err = repo.Save(context.Background(), &object)
 		assert.NoError(t, err)
 		assert.Len(t, eventStreamFor(t, database, object.ObjectID()), 1)
 
 		object.SetGrade("a")
-		err = repo.Save(&object)
+		err = repo.Save(context.Background(), &object)
 		assert.NoError(t, err)
 		assert.Len(t, eventStreamFor(t, database, object.ObjectID()), 2)
-		err = repo.Save(&object)
+		err = repo.Save(context.Background(), &object)
 		assert.NoError(t, err)
 		assert.Len(t, eventStreamFor(t, database, object.ObjectID()), 2)
 	})
@@ -105,15 +105,15 @@ func TestMongoSave(t *testing.T) {
 		object := Student{ID: uuid.NewString()}
 
 		object.SetGrade("a")
-		err = repo.Save(&object)
+		err = repo.Save(context.Background(), &object)
 		assert.NoError(t, err)
 
 		objectCopy := object
 		object.SetGrade("b")
-		err = repo.Save(&object)
+		err = repo.Save(context.Background(), &object)
 		assert.NoError(t, err)
 		objectCopy.SetGrade("c")
-		err = repo.Save(&objectCopy)
+		err = repo.Save(context.Background(), &objectCopy)
 		assert.ErrorIs(t, err, ConcurrencyError)
 	})
 }
@@ -133,7 +133,7 @@ func TestMongoPublished(t *testing.T) {
 	object := Student{}
 
 	object.SetGrade("a")
-	err = repo.Save(&object)
+	err = repo.Save(context.Background(), &object)
 	assert.NoError(t, err)
 
 	if len(receiver.events) != 1 {
@@ -158,7 +158,7 @@ func TestMongoPublishedNoWait(t *testing.T) {
 	}
 
 	object.SetGrade("a")
-	err = repo.Save(&object)
+	err = repo.Save(context.Background(), &object)
 	assert.NoError(t, err)
 	time.Sleep(500 * time.Millisecond)
 
@@ -179,7 +179,7 @@ func TestMongoSaveMultiples(t *testing.T) {
 
 	object.SetGrade("a")
 	object.SetGrade("a")
-	err = repo.Save(&object)
+	err = repo.Save(context.Background(), &object)
 	assert.NoError(t, err)
 
 	if len(eventStreamFor(t, database, object.ObjectID())) != 2 {
@@ -201,11 +201,11 @@ func TestMongoSaveMultiplesObject(t *testing.T) {
 
 	object.SetGrade("a")
 	object.SetGrade("a")
-	err = repo.Save(&object)
+	err = repo.Save(context.Background(), &object)
 	assert.NoError(t, err)
 
 	object2.SetGrade("a")
-	err = repo.Save(&object2)
+	err = repo.Save(context.Background(), &object2)
 	assert.NoError(t, err)
 
 	if len(eventStreamFor(t, database, object.ObjectID())) != 2 {
@@ -226,15 +226,15 @@ func TestMongoLoad(t *testing.T) {
 
 	object.SetGrade("a")
 	object.SetGrade("a")
-	err = repo.Save(&object)
+	err = repo.Save(context.Background(), &object)
 	assert.NoError(t, err)
 
 	object2.SetGrade("a")
-	err = repo.Save(&object2)
+	err = repo.Save(context.Background(), &object2)
 	assert.NoError(t, err)
 
 	loadedObject := Student{}
-	err = repo.Load(object.ObjectID(), &loadedObject)
+	err = repo.Load(context.Background(), object.ObjectID(), &loadedObject)
 
 	if err != nil {
 		t.Errorf("No error should occur on load : %v", err)
@@ -258,10 +258,10 @@ func TestMongoEventsSince(t *testing.T) {
 	object2 := Student{ID: uuid.New().String()}
 
 	object.SetGrade("a")
-	err = repo.Save(&object)
+	err = repo.Save(context.Background(), &object)
 	assert.NoError(t, err)
 	object2.SetGrade("a")
-	err = repo.Save(&object2)
+	err = repo.Save(context.Background(), &object2)
 	assert.NoError(t, err)
 	before := time.Now()
 
@@ -270,12 +270,12 @@ func TestMongoEventsSince(t *testing.T) {
 	object.SetGrade("b")
 	time.Sleep(100 * time.Millisecond)
 	object2.SetGrade("b")
-	err = repo.Save(&object)
+	err = repo.Save(context.Background(), &object)
 	assert.NoError(t, err)
-	err = repo.Save(&object2)
+	err = repo.Save(context.Background(), &object2)
 	assert.NoError(t, err)
 
-	events, err := repo.EventsSince(before, 50)
+	events, err := repo.EventsSince(context.Background(), before, 50)
 
 	if err != nil {
 		t.Error("No error should occur on EventsSince")
@@ -299,10 +299,10 @@ func TestMongoEventsSinceLimit(t *testing.T) {
 	object2 := Student{ID: uuid.New().String()}
 
 	object.SetGrade("a")
-	err = repo.Save(&object)
+	err = repo.Save(context.Background(), &object)
 	assert.NoError(t, err)
 	object2.SetGrade("a")
-	err = repo.Save(&object2)
+	err = repo.Save(context.Background(), &object2)
 	assert.NoError(t, err)
 	before := time.Now()
 
@@ -311,12 +311,12 @@ func TestMongoEventsSinceLimit(t *testing.T) {
 	object.SetGrade("b")
 	time.Sleep(100 * time.Millisecond)
 	object2.SetGrade("b")
-	err = repo.Save(&object)
+	err = repo.Save(context.Background(), &object)
 	assert.NoError(t, err)
-	err = repo.Save(&object2)
+	err = repo.Save(context.Background(), &object2)
 	assert.NoError(t, err)
 
-	events, err := repo.EventsSince(before, 1)
+	events, err := repo.EventsSince(context.Background(), before, 1)
 
 	if err != nil {
 		t.Error("No error should occur on EventsSince")
@@ -345,7 +345,7 @@ func TestMongoMementizerSnapshotSaved(t *testing.T) {
 	for i := 0; i < 600; i++ {
 		object.SetGrade(fmt.Sprintf("a%d", i))
 	}
-	err = repo.Save(&object)
+	err = repo.Save(context.Background(), &object)
 	assert.NoError(t, err)
 
 	filter := bson.M{"objectid": object.ObjectID()}
@@ -369,7 +369,7 @@ func TestMongoNotMementizerSnapshotNotSaved(t *testing.T) {
 	for i := 0; i < 600; i++ {
 		object.SetGrade(fmt.Sprintf("a%d", i))
 	}
-	err = repo.Save(&object)
+	err = repo.Save(context.Background(), &object)
 	assert.NoError(t, err)
 
 	filter := bson.M{"objectid": object.ObjectID()}
@@ -396,18 +396,18 @@ func TestMongoLoadMementizer(t *testing.T) {
 	for i := 0; i < 600; i++ {
 		object.SetGrade(fmt.Sprintf("a%d", i))
 	}
-	err = repo.Save(&object)
+	err = repo.Save(context.Background(), &object)
 	assert.NoError(t, err)
 	for i := 0; i < 10; i++ {
 		object.SetGrade(fmt.Sprintf("a%d", i))
 	}
-	err = repo.Save(&object)
+	err = repo.Save(context.Background(), &object)
 	assert.NoError(t, err)
 
 	loadedObject := StudentMemento{
 		EventStream: &Stream{},
 	}
-	err = repo.Load(object.ObjectID(), &loadedObject)
+	err = repo.Load(context.Background(), object.ObjectID(), &loadedObject)
 
 	if err != nil {
 		t.Error("Loading should not throw an error")
@@ -440,10 +440,10 @@ func TestMongoUpdate(t *testing.T) {
 		assert.NoError(t, err)
 		object := Student{ID: uuid.New().String()}
 		object.SetGrade("a")
-		err = repo.Save(&object)
+		err = repo.Save(context.Background(), &object)
 		assert.NoError(t, err)
 
-		savedObject, err := repo.Update(object.ObjectID(), &object, 1, func(object *Student) (*Student, error) {
+		savedObject, err := repo.Update(context.Background(), object.ObjectID(), &object, 1, func(object *Student) (*Student, error) {
 			object.SetGrade("b")
 			return object, nil
 		})
@@ -452,7 +452,7 @@ func TestMongoUpdate(t *testing.T) {
 		assert.Equal(t, "b", savedObject.grade)
 
 		loadedObject := &Student{}
-		err = repo.Load(object.ObjectID(), loadedObject)
+		err = repo.Load(context.Background(), object.ObjectID(), loadedObject)
 		assert.NoError(t, err)
 		assert.Equal(t, "b", loadedObject.grade)
 	})
@@ -466,17 +466,17 @@ func TestMongoUpdate(t *testing.T) {
 		assert.NoError(t, err)
 		object := Student{ID: uuid.New().String()}
 		object.SetGrade("a")
-		err = repo.Save(&object)
+		err = repo.Save(context.Background(), &object)
 		assert.NoError(t, err)
 
 		// Here we introduce a concurrency error
 		object2 := object
 		object2.SetGrade("c")
-		err = repo.Save(&object2)
+		err = repo.Save(context.Background(), &object2)
 		assert.NoError(t, err)
 
 		// Now we update and should not get an error
-		savedObject, err := repo.Update(object.ObjectID(), &object, 1, func(object *Student) (*Student, error) {
+		savedObject, err := repo.Update(context.Background(), object.ObjectID(), &object, 1, func(object *Student) (*Student, error) {
 			object.SetGrade("b")
 			return object, nil
 		})
@@ -485,7 +485,7 @@ func TestMongoUpdate(t *testing.T) {
 		assert.Equal(t, "b", savedObject.grade)
 
 		loadedObject := &Student{}
-		err = repo.Load(object.ObjectID(), loadedObject)
+		err = repo.Load(context.Background(), object.ObjectID(), loadedObject)
 		assert.NoError(t, err)
 		assert.Equal(t, "b", loadedObject.grade)
 	})
@@ -499,10 +499,10 @@ func TestMongoUpdate(t *testing.T) {
 		assert.NoError(t, err)
 		object := Student{ID: uuid.New().String()}
 		object.SetGrade("a")
-		err = repo.Save(&object)
+		err = repo.Save(context.Background(), &object)
 		assert.NoError(t, err)
 
-		_, err = repo.Update(object.ObjectID(), &object, -1, func(object *Student) (*Student, error) {
+		_, err = repo.Update(context.Background(), object.ObjectID(), &object, -1, func(object *Student) (*Student, error) {
 			object.SetGrade("b")
 			return object, nil
 		})
@@ -519,11 +519,11 @@ func TestMongoUpdate(t *testing.T) {
 		assert.NoError(t, err)
 		object := Student{ID: uuid.New().String()}
 		object.SetGrade("a")
-		err = repo.Save(&object)
+		err = repo.Save(context.Background(), &object)
 		assert.NoError(t, err)
 
 		myError := errors.New("my error")
-		_, err = repo.Update(object.ObjectID(), &object, 0, func(object *Student) (*Student, error) {
+		_, err = repo.Update(context.Background(), object.ObjectID(), &object, 0, func(object *Student) (*Student, error) {
 			return object, myError
 		})
 
@@ -540,10 +540,10 @@ func TestMongoUpdate(t *testing.T) {
 		assert.NoError(t, err)
 		object := Student{ID: uuid.New().String()}
 		object.SetGrade("a")
-		err = repo.Save(&object)
+		err = repo.Save(context.Background(), &object)
 		assert.NoError(t, err)
 
-		_, err = repo.Update(uuid.NewString(), &object, -1, func(object *Student) (*Student, error) {
+		_, err = repo.Update(context.Background(), uuid.NewString(), &object, -1, func(object *Student) (*Student, error) {
 			return object, nil
 		})
 

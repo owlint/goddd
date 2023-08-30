@@ -1,6 +1,7 @@
 package goddd
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -11,7 +12,7 @@ func TestSave(t *testing.T) {
 	object := Student{}
 
 	object.SetGrade("a")
-	repo.Save(&object)
+	repo.Save(context.Background(), &object)
 
 	if len(repo.eventStream) != 1 {
 		t.Error("Should contain only one event")
@@ -26,7 +27,7 @@ func TestSaveMultiples(t *testing.T) {
 
 	object.SetGrade("a")
 	object.SetGrade("a")
-	repo.Save(&object)
+	repo.Save(context.Background(), &object)
 
 	if len(repo.eventStream) != 2 {
 		t.Error("Should contain only one event")
@@ -42,10 +43,10 @@ func TestSaveMultiplesObject(t *testing.T) {
 
 	object.SetGrade("a")
 	object.SetGrade("a")
-	repo.Save(&object)
+	repo.Save(context.Background(), &object)
 
 	object2.SetGrade("a")
-	repo.Save(&object2)
+	repo.Save(context.Background(), &object2)
 
 	if len(repo.eventStream) != 3 {
 		t.Errorf("Should contain only one event : %d", len(repo.eventStream))
@@ -61,13 +62,13 @@ func TestLoad(t *testing.T) {
 
 	object.SetGrade("a")
 	object.SetGrade("a")
-	repo.Save(&object)
+	repo.Save(context.Background(), &object)
 
 	object2.SetGrade("a")
-	repo.Save(&object2)
+	repo.Save(context.Background(), &object2)
 
 	loadedObject := Student{}
-	err := repo.Load(object.ObjectID(), &loadedObject)
+	err := repo.Load(context.Background(), object.ObjectID(), &loadedObject)
 
 	if err != nil {
 		t.Errorf("No error should occur on load : %v", err)
@@ -87,9 +88,9 @@ func TestInMemoryEventsSince(t *testing.T) {
 	object2 := Student{}
 
 	object.SetGrade("a")
-	repo.Save(&object)
+	repo.Save(context.Background(), &object)
 	object2.SetGrade("a")
-	repo.Save(&object2)
+	repo.Save(context.Background(), &object2)
 	before := time.Now()
 
 	time.Sleep(3 * time.Second)
@@ -97,10 +98,10 @@ func TestInMemoryEventsSince(t *testing.T) {
 	object.SetGrade("b")
 	time.Sleep(100 * time.Millisecond)
 	object2.SetGrade("b")
-	repo.Save(&object)
-	repo.Save(&object2)
+	repo.Save(context.Background(), &object)
+	repo.Save(context.Background(), &object2)
 
-	events, err := repo.EventsSince(before, 50)
+	events, err := repo.EventsSince(context.Background(), before, 50)
 
 	if err != nil {
 		t.Error("No error should occur on EventsSince")
@@ -121,9 +122,9 @@ func TestInMemoryEventsSinceLimit(t *testing.T) {
 	object2 := Student{}
 
 	object.SetGrade("a")
-	repo.Save(&object)
+	repo.Save(context.Background(), &object)
 	object2.SetGrade("a")
-	repo.Save(&object2)
+	repo.Save(context.Background(), &object2)
 	before := time.Now()
 
 	time.Sleep(3 * time.Second)
@@ -131,10 +132,10 @@ func TestInMemoryEventsSinceLimit(t *testing.T) {
 	object.SetGrade("b")
 	time.Sleep(100 * time.Millisecond)
 	object2.SetGrade("b")
-	repo.Save(&object)
-	repo.Save(&object2)
+	repo.Save(context.Background(), &object)
+	repo.Save(context.Background(), &object2)
 
-	events, err := repo.EventsSince(before, 1)
+	events, err := repo.EventsSince(context.Background(), before, 1)
 
 	if err != nil {
 		t.Error("No error should occur on EventsSince")
