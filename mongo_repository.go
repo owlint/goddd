@@ -7,9 +7,6 @@ import (
 	"time"
 
 	"github.com/dgraph-io/ristretto"
-	"github.com/golang-migrate/migrate/v4"
-	mongomigrate "github.com/golang-migrate/migrate/v4/database/mongodb"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -323,34 +320,49 @@ func fromRecords(records []record) []Event {
 }
 
 func MigrateMongoDB(mongoDB *mongo.Database, dir string) error {
-	driver, err := mongomigrate.WithInstance(mongoDB.Client(), &mongomigrate.Config{
-		DatabaseName:         mongoDB.Name(),
-		MigrationsCollection: "goddd_migrations",
-		TransactionMode:      false,
-		Locking: mongomigrate.Locking{
-			CollectionName: "goddd_migration_locking",
-			Timeout:        5,
-			Enabled:        true,
-			Interval:       1,
+	collection := mongoDB.Collection("event_store")
+	_, err := collection.Indexes().CreateMany(context.Background(), []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				bson.E{
+					Key:   "objectid",
+					Value: 1,
+				},
+			},
+			Options: options.Index().SetName("objectID").SetUnique(false).SetBackground(true),
+		},
+		{
+			Keys: bson.D{
+				bson.E{
+					Key:   "objectid",
+					Value: 1,
+				},
+				bson.E{
+					Key:   "version",
+					Value: 1,
+				},
+			},
+			Options: options.Index().SetName("objectID_version_unique").SetUnique(true).SetBackground(true),
+		},
+		{
+			Keys: bson.D{
+				bson.E{
+					Key:   "id",
+					Value: 1,
+				},
+			},
+			Options: options.Index().SetName("eventid_unique").SetUnique(true).SetBackground(true),
+		},
+		{
+			Keys: bson.D{
+				bson.E{
+					Key:   "timestamp",
+					Value: 1,
+				},
+			},
+			Options: options.Index().SetName("timestamp_index").SetUnique(false).SetBackground(true),
 		},
 	})
-	if err != nil {
-		return err
-	}
 
-	m, err := migrate.NewWithDatabaseInstance(
-		"file://"+dir,
-		"mongodb",
-		driver,
-	)
-	if err != nil {
-		return err
-	}
-
-	err = m.Up()
-	if err != nil && err != migrate.ErrNoChange {
-		return err
-	}
-
-	return nil
+	return err
 }
