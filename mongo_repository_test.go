@@ -531,6 +531,27 @@ func TestMongoUpdate(t *testing.T) {
 		assert.True(t, errors.Is(err, myError))
 	})
 
+	t.Run("No error nil object", func(t *testing.T) {
+		client, database := connectTestMongo(t)
+		defer client.Disconnect(context.TODO())
+
+		publisher := NewEventPublisher()
+		repo, err := NewMongoRepository[*Student](database, &publisher)
+		assert.NoError(t, err)
+		object := Student{ID: uuid.New().String()}
+		object.SetGrade("a")
+		err = repo.Save(context.Background(), &object)
+		assert.NoError(t, err)
+
+		_, err = repo.Update(context.Background(), object.ObjectID(), &object, 1, func(object *Student) (*Student, error) {
+			object.SetGrade("b")
+			return nil, nil
+		})
+
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, InvalidUpdateCallback)
+	})
+
 	t.Run("Invalid ID", func(t *testing.T) {
 		client, database := connectTestMongo(t)
 		defer client.Disconnect(context.TODO())

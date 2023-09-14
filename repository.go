@@ -6,12 +6,14 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 var ConcurrencyError = errors.New("concurrency error while saving")
+var InvalidUpdateCallback = errors.New("callback should return a non nil object if error is nil")
 
 type Repository[T DomainObject] interface {
 	Save(ctx context.Context, object T) error
@@ -76,6 +78,9 @@ func repoUpdate[T DomainObject](ctx context.Context, repo Repository[T], objectI
 		object, err = updater(object)
 		if err != nil {
 			return object, err
+		}
+		if reflect.ValueOf(object).IsNil() {
+			return object, InvalidUpdateCallback
 		}
 		err = repo.Save(ctx, object)
 		if errors.Is(err, ConcurrencyError) {
