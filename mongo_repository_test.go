@@ -571,3 +571,50 @@ func TestMongoUpdate(t *testing.T) {
 		assert.Error(t, err)
 	})
 }
+
+func TestMongoRemove(t *testing.T) {
+	t.Run("Remove", func(t *testing.T) {
+		client, database := connectTestMongo(t)
+		defer client.Disconnect(context.TODO())
+
+		publisher := NewEventPublisher()
+		repo, err := NewMongoRepository[*Student](database, &publisher)
+		assert.NoError(t, err)
+		object := Student{ID: uuid.New().String()}
+		object.SetGrade("a")
+		err = repo.Save(context.Background(), &object)
+		assert.NoError(t, err)
+
+		loadedObject, err := repo.Remove(context.Background(), object.ObjectID(), &object)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, loadedObject)
+		exists, err := repo.Exists(context.Background(), object.ID)
+		assert.NoError(t, err)
+		assert.False(t, exists)
+
+		events := eventStreamFor(t, database, object.ID)
+		assert.Len(t, events, 1)
+		assert.Equal(t, "removed", events[0].name)
+	})
+	t.Run("Remove unknown", func(t *testing.T) {
+		client, database := connectTestMongo(t)
+		defer client.Disconnect(context.TODO())
+
+		publisher := NewEventPublisher()
+		repo, err := NewMongoRepository[*Student](database, &publisher)
+		assert.NoError(t, err)
+		object := Student{ID: uuid.New().String()}
+		object.SetGrade("a")
+		err = repo.Save(context.Background(), &object)
+		assert.NoError(t, err)
+
+		loadedObject, err := repo.Remove(context.Background(), uuid.NewString(), &object)
+
+		assert.Error(t, err)
+		assert.NotNil(t, loadedObject)
+		exists, err := repo.Exists(context.Background(), object.ID)
+		assert.NoError(t, err)
+		assert.True(t, exists)
+	})
+}

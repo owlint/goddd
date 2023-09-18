@@ -184,7 +184,7 @@ func (r *MongoRepository[T]) reloadSnapshot(snapshot *snapshot, object T) error 
 }
 
 func (r *MongoRepository[T]) Exists(ctx context.Context, objectId string) (bool, error) {
-	filter := bson.D{{"objectid", objectId}}
+	filter := bson.D{{"objectid", objectId}, {"name", bson.D{{"$ne", "removed"}}}}
 	result := r.collection.FindOne(ctx, filter)
 	if result != nil && result.Err() == mongo.ErrNoDocuments {
 		return false, nil
@@ -286,6 +286,38 @@ func (r *MongoRepository[T]) lastSnapshot(ctx context.Context, objectID string) 
 	}
 
 	return &lastSnapshot, nil
+}
+
+func (r *MongoRepository[T]) Remove(ctx context.Context, objectID string, object T) (T, error) {
+	if exists, err := r.Exists(ctx, objectID); err != nil || !exists {
+		return object, errors.New("cannot load unknown object")
+	}
+	err := r.Load(ctx, objectID, object)
+	if err != nil {
+		return object, err
+	}
+
+	_, err = r.collection.DeleteMany(ctx, bson.D{{"objectid", objectID}})
+	if err != nil {
+		return object, err
+	}
+
+	event := NewEvent(objectID, "removed", object.LastVersion(), []byte{})
+	events := []Event{event}
+	records := toRecords(events)
+	_, err = r.collection.InsertMany(ctx, records)
+	if err != nil {
+		return object, err
+	}
+
+	_, err = r.snapshotsCollection.DeleteMany(ctx, bson.D{{"objectid", object}})
+	if err != nil {
+		return object, err
+	}
+
+	r.publisher.Publish(events)
+
+	return object, nil
 }
 
 func toRecords(events []Event) []interface{} {

@@ -59,6 +59,18 @@ func TestAddMultipleEventsToStream(t *testing.T) {
 
 	assert.True(t, allDifferent(eventIds))
 }
+
+func TestAddReservedEventName(t *testing.T) {
+	object := &Student{}
+	stream := object.Stream
+	payload := GradeSet{"b"}
+	err := stream.AddEvent(object, "GradeSet", payload)
+	assert.NoError(t, err)
+
+	err = stream.AddEvent(object, "removed", GradeSet{"c"})
+	assert.Error(t, err)
+}
+
 func TestCollectUnsavedEvents(t *testing.T) {
 	t.Run("With unsaved events", func(t *testing.T) {
 		object := &Student{}

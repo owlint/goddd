@@ -21,6 +21,7 @@ type Repository[T DomainObject] interface {
 	Exists(ctx context.Context, objectID string) (bool, error)
 	EventsSince(ctx context.Context, time time.Time, limit int) ([]Event, error)
 	Update(ctx context.Context, objectID string, object T, nbRetries int, updater func(T) (T, error)) (T, error)
+	Remove(ctx context.Context, objectID string, object T) (T, error)
 }
 
 func unsavedEvents(objectEvents []Event, knownEventIDs []string) []Event {

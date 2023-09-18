@@ -1,6 +1,8 @@
 package goddd
 
 import (
+	"errors"
+
 	"github.com/tinylib/msgp/msgp"
 )
 
@@ -25,6 +27,9 @@ type Stream struct {
 
 // AddEvent add a new event into the stream
 func (s *Stream) AddEvent(object DomainObject, eventName string, payload msgp.Marshaler) error {
+	if eventName == "removed" {
+		return errors.New("'removed' is a reserved event name")
+	}
 	bytePayload, err := payload.MarshalMsg(nil)
 	if err != nil {
 		return err

@@ -4,6 +4,9 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSave(t *testing.T) {
@@ -146,4 +149,48 @@ func TestInMemoryEventsSinceLimit(t *testing.T) {
 		t.Errorf("There should have 1 event, got %d : %v", len(events), events)
 		t.FailNow()
 	}
+}
+func TestInMemoryRemove(t *testing.T) {
+	t.Run("Remove", func(t *testing.T) {
+		publisher := NewEventPublisher()
+		repo := NewInMemoryRepository[*Student](&publisher)
+		object := Student{ID: uuid.New().String()}
+		object.SetGrade("a")
+		err := repo.Save(context.Background(), &object)
+		assert.NoError(t, err)
+
+		loadedObject, err := repo.Remove(context.Background(), object.ObjectID(), &object)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, loadedObject)
+		exists, err := repo.Exists(context.Background(), object.ID)
+		assert.NoError(t, err)
+		assert.False(t, exists)
+
+		events := make([]Event, 0)
+		for _, event := range repo.eventStream {
+			if event.objectID == object.ID {
+				events = append(events, event)
+			}
+		}
+
+		assert.Len(t, events, 1)
+		assert.Equal(t, "removed", events[0].name)
+	})
+	t.Run("Remove unknown", func(t *testing.T) {
+		publisher := NewEventPublisher()
+		repo := NewInMemoryRepository[*Student](&publisher)
+		object := Student{ID: uuid.New().String()}
+		object.SetGrade("a")
+		err := repo.Save(context.Background(), &object)
+		assert.NoError(t, err)
+
+		loadedObject, err := repo.Remove(context.Background(), uuid.NewString(), &object)
+
+		assert.Error(t, err)
+		assert.NotNil(t, loadedObject)
+		exists, err := repo.Exists(context.Background(), object.ID)
+		assert.NoError(t, err)
+		assert.True(t, exists)
+	})
 }
