@@ -184,7 +184,7 @@ func (r *MongoRepository[T]) reloadSnapshot(snapshot *snapshot, object T) error 
 }
 
 func (r *MongoRepository[T]) Exists(ctx context.Context, objectId string) (bool, error) {
-	filter := bson.D{{"objectid", objectId}, {"name", bson.D{{"$ne", "removed"}}}}
+	filter := bson.D{{"objectid", objectId}, {"name", bson.D{{"$ne", REMOVED_EVENT_NAME}}}}
 	result := r.collection.FindOne(ctx, filter)
 	if result != nil && result.Err() == mongo.ErrNoDocuments {
 		return false, nil
@@ -288,36 +288,38 @@ func (r *MongoRepository[T]) lastSnapshot(ctx context.Context, objectID string) 
 	return &lastSnapshot, nil
 }
 
-func (r *MongoRepository[T]) Remove(ctx context.Context, objectID string, object T) (T, error) {
+func (r *MongoRepository[T]) Remove(ctx context.Context, objectID string, object T) error {
 	if exists, err := r.Exists(ctx, objectID); err != nil || !exists {
-		return object, errors.New("cannot load unknown object")
-	}
-	err := r.Load(ctx, objectID, object)
-	if err != nil {
-		return object, err
+		return errors.New("cannot load unknown object")
 	}
 
-	_, err = r.collection.DeleteMany(ctx, bson.D{{"objectid", objectID}})
-	if err != nil {
-		return object, err
-	}
-
-	event := NewEvent(objectID, "removed", object.LastVersion(), []byte{})
+	event := NewEvent(objectID, REMOVED_EVENT_NAME, object.LastVersion(), []byte{})
 	events := []Event{event}
 	records := toRecords(events)
-	_, err = r.collection.InsertMany(ctx, records)
+	_, err := r.collection.InsertMany(ctx, records)
 	if err != nil {
-		return object, err
+		return err
+	}
+
+	_, err = r.collection.DeleteMany(
+		ctx,
+		bson.D{
+			bson.E{"objectid", objectID},
+			bson.E{"name", bson.D{{"$ne", REMOVED_EVENT_NAME}}},
+		},
+	)
+	if err != nil {
+		return err
 	}
 
 	_, err = r.snapshotsCollection.DeleteMany(ctx, bson.D{{"objectid", object}})
 	if err != nil {
-		return object, err
+		return err
 	}
 
 	r.publisher.Publish(events)
 
-	return object, nil
+	return nil
 }
 
 func toRecords(events []Event) []interface{} {
@@ -393,6 +395,19 @@ func MigrateMongoDB(mongoDB *mongo.Database, dir string) error {
 				},
 			},
 			Options: options.Index().SetName("timestamp_index").SetUnique(false).SetBackground(true),
+		},
+		{
+			Keys: bson.D{
+				bson.E{
+					Key:   "objectid",
+					Value: 1,
+				},
+				bson.E{
+					Key:   "name",
+					Value: 1,
+				},
+			},
+			Options: options.Index().SetName("objectID_name").SetUnique(false).SetBackground(true),
 		},
 	})
 

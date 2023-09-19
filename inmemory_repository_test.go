@@ -159,10 +159,9 @@ func TestInMemoryRemove(t *testing.T) {
 		err := repo.Save(context.Background(), &object)
 		assert.NoError(t, err)
 
-		loadedObject, err := repo.Remove(context.Background(), object.ObjectID(), &object)
+		err = repo.Remove(context.Background(), object.ObjectID(), &object)
 
 		assert.NoError(t, err)
-		assert.NotNil(t, loadedObject)
 		exists, err := repo.Exists(context.Background(), object.ID)
 		assert.NoError(t, err)
 		assert.False(t, exists)
@@ -175,7 +174,7 @@ func TestInMemoryRemove(t *testing.T) {
 		}
 
 		assert.Len(t, events, 1)
-		assert.Equal(t, "removed", events[0].name)
+		assert.Equal(t, REMOVED_EVENT_NAME, events[0].name)
 	})
 	t.Run("Remove unknown", func(t *testing.T) {
 		publisher := NewEventPublisher()
@@ -185,10 +184,9 @@ func TestInMemoryRemove(t *testing.T) {
 		err := repo.Save(context.Background(), &object)
 		assert.NoError(t, err)
 
-		loadedObject, err := repo.Remove(context.Background(), uuid.NewString(), &object)
+		err = repo.Remove(context.Background(), uuid.NewString(), &object)
 
 		assert.Error(t, err)
-		assert.NotNil(t, loadedObject)
 		exists, err := repo.Exists(context.Background(), object.ID)
 		assert.NoError(t, err)
 		assert.True(t, exists)

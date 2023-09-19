@@ -67,7 +67,7 @@ func TestAddReservedEventName(t *testing.T) {
 	err := stream.AddEvent(object, "GradeSet", payload)
 	assert.NoError(t, err)
 
-	err = stream.AddEvent(object, "removed", GradeSet{"c"})
+	err = stream.AddEvent(object, REMOVED_EVENT_NAME, GradeSet{"c"})
 	assert.Error(t, err)
 }
 

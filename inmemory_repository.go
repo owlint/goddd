@@ -45,7 +45,7 @@ func (r *InMemoryRepository[T]) Load(ctx context.Context, objectID string, objec
 
 func (r *InMemoryRepository[T]) Exists(ctx context.Context, objectId string) (bool, error) {
 	for _, event := range r.eventStream {
-		if event.ObjectId() == objectId && event.name != "removed" {
+		if event.ObjectId() == objectId && event.name != REMOVED_EVENT_NAME {
 			return true, nil
 		}
 	}
@@ -79,10 +79,9 @@ func (r *InMemoryRepository[T]) Update(ctx context.Context, objectID string, obj
 	return repoUpdate[T](ctx, r, objectID, object, nbRetries, updater)
 }
 
-func (r *InMemoryRepository[T]) Remove(ctx context.Context, objectID string, object T) (T, error) {
-	err := r.Load(ctx, objectID, object)
-	if err != nil {
-		return object, err
+func (r *InMemoryRepository[T]) Remove(ctx context.Context, objectID string, object T) error {
+	if exists, err := r.Exists(ctx, objectID); err != nil || !exists {
+		return errors.New("unknown object")
 	}
 
 	eventsToKeep := make([]Event, 0)
@@ -93,8 +92,8 @@ func (r *InMemoryRepository[T]) Remove(ctx context.Context, objectID string, obj
 	}
 	r.eventStream = eventsToKeep
 
-	event := NewEvent(objectID, "removed", object.LastVersion(), []byte{})
+	event := NewEvent(objectID, REMOVED_EVENT_NAME, object.LastVersion(), []byte{})
 	r.eventStream = append(r.eventStream, event)
 
-	return object, err
+	return nil
 }

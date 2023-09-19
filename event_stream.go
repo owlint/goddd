@@ -2,9 +2,12 @@ package goddd
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/tinylib/msgp/msgp"
 )
+
+const REMOVED_EVENT_NAME = "removed"
 
 // EventStream is an interface representing a stream of events
 type EventStream interface {
@@ -27,7 +30,7 @@ type Stream struct {
 
 // AddEvent add a new event into the stream
 func (s *Stream) AddEvent(object DomainObject, eventName string, payload msgp.Marshaler) error {
-	if eventName == "removed" {
+	if strings.ToLower(eventName) == REMOVED_EVENT_NAME {
 		return errors.New("'removed' is a reserved event name")
 	}
 	bytePayload, err := payload.MarshalMsg(nil)
