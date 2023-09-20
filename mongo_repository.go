@@ -288,15 +288,51 @@ func (r *MongoRepository[T]) lastSnapshot(ctx context.Context, objectID string) 
 	return &lastSnapshot, nil
 }
 
+func (r *MongoRepository[T]) lastVersion(ctx context.Context, objectID string) (int64, error) {
+	cursor, err := r.collection.Aggregate(
+		ctx,
+		bson.A{
+			bson.D{{"$match", bson.D{{"objectid", objectID}}}},
+			bson.D{
+				{"$group",
+					bson.D{
+						{"_id", "$objectid"},
+						{"lastVersion", bson.D{{"$max", "$version"}}},
+					},
+				},
+			},
+		},
+	)
+	if err != nil {
+		return -1, err
+	}
+	result := make([]struct {
+		ObjectID    string `bson:"_id"`
+		LastVersion int64  `bson:"lastVersion"`
+	}, 0)
+	err = cursor.All(ctx, &result)
+	if err != nil {
+		return -1, err
+	}
+	if len(result) == 0 {
+		return -1, errors.New("unknown object")
+	}
+	return result[0].LastVersion, nil
+}
+
 func (r *MongoRepository[T]) Remove(ctx context.Context, objectID string, object T) error {
 	if exists, err := r.Exists(ctx, objectID); err != nil || !exists {
 		return errors.New("cannot load unknown object")
 	}
 
-	event := NewEvent(objectID, REMOVED_EVENT_NAME, object.LastVersion(), []byte{})
+	lastVersion, err := r.lastVersion(ctx, objectID)
+	if err != nil {
+		return err
+	}
+	event := NewEvent(objectID, REMOVED_EVENT_NAME, int(lastVersion)+1, []byte{})
 	events := []Event{event}
 	records := toRecords(events)
-	_, err := r.collection.InsertMany(ctx, records)
+	_, err = r.collection.InsertMany(ctx, records)
 	if err != nil {
 		return err
 	}
