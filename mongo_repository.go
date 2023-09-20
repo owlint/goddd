@@ -334,6 +334,9 @@ func (r *MongoRepository[T]) Remove(ctx context.Context, objectID string, object
 	records := toRecords(events)
 	_, err = r.collection.InsertMany(ctx, records)
 	if err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return ConcurrencyError
+		}
 		return err
 	}
 
