@@ -1,7 +1,7 @@
 package goddd
 
 import (
-	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/tinylib/msgp/msgp"
@@ -31,7 +31,7 @@ type Stream struct {
 // AddEvent add a new event into the stream
 func (s *Stream) AddEvent(object DomainObject, eventName string, payload msgp.Marshaler) error {
 	if strings.ToLower(eventName) == REMOVED_EVENT_NAME {
-		return errors.New("'removed' is a reserved event name")
+		return fmt.Errorf("'%s' is a reserved event name", REMOVED_EVENT_NAME)
 	}
 	bytePayload, err := payload.MarshalMsg(nil)
 	if err != nil {

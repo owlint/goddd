@@ -122,7 +122,7 @@ func (r *MongoRepository[T]) persistSnapshot(ctx context.Context, object T, meme
 		"objectid": object.ObjectID(),
 	}
 
-	_, err = r.snapshotsCollection.UpdateOne(context.Background(), filter, update, options)
+	_, err = r.snapshotsCollection.UpdateOne(ctx, filter, update, options)
 
 	if r.snapshotsCache != nil {
 		r.snapshotsCache.Set(object.ObjectID(), snap, 1)
@@ -320,7 +320,21 @@ func (r *MongoRepository[T]) lastVersion(ctx context.Context, objectID string) (
 	return result[0].LastVersion, nil
 }
 
+func (r *MongoRepository[T]) alreadyRemoved(ctx context.Context, objectID string) (bool, error) {
+	filter := bson.D{{"objectid", objectID}, {"name", bson.D{{"$eq", REMOVED_EVENT_NAME}}}}
+	result := r.collection.FindOne(ctx, filter)
+	if result != nil && errors.Is(result.Err(), mongo.ErrNoDocuments) {
+		return false, nil
+	} else if result.Err() != nil {
+		return false, result.Err()
+	}
+	return true, nil
+}
+
 func (r *MongoRepository[T]) Remove(ctx context.Context, objectID string, object T) error {
+	if alreadyRemoved, _ := r.alreadyRemoved(ctx, objectID); alreadyRemoved {
+		return nil
+	}
 	if exists, err := r.Exists(ctx, objectID); err != nil || !exists {
 		return errors.New("cannot load unknown object")
 	}

@@ -615,7 +615,7 @@ func TestMongoRemove(t *testing.T) {
 		assert.NoError(t, err)
 		assert.True(t, exists)
 	})
-	t.Run("Remove twice", func(t *testing.T) {
+	t.Run("Remove is idempotent", func(t *testing.T) {
 		client, database := connectTestMongo(t)
 		defer client.Disconnect(context.TODO())
 
@@ -631,6 +631,6 @@ func TestMongoRemove(t *testing.T) {
 		assert.NoError(t, err)
 
 		err = repo.Remove(context.Background(), object.ObjectID(), &object)
-		assert.Error(t, err)
+		assert.NoError(t, err)
 	})
 }
